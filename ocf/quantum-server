@@ -1,0 +1,325 @@
+#!/bin/sh
+#
+#
+# OpenStack Quantum Server (quantum-server)
+#
+# Description:  Manages an OpenStack Quantum Server (quantum-server) process as an HA resource
+#
+# Authors:      Emilien Macchi
+# Mainly inspired by the Nova API resource agent written by Sebastien Han : http://goo.gl/s8hOU
+# Which is also inspired by the Glance API resource agent written by Martin Gerhard Loschwitz from Hastexo: http://goo.gl/whLpr
+#
+# Support:      openstack@lists.launchpad.net
+# License:      Apache Software License (ASL) 2.0
+#
+#
+# See usage() function below for more details ...
+#
+# OCF instance parameters:
+#   OCF_RESKEY_binary
+#   OCF_RESKEY_config
+#   OCF_RESKEY_user
+#   OCF_RESKEY_pid
+#   OCF_RESKEY_monitor_binary
+#   OCF_RESKEY_api_listened_port
+#   OCF_RESKEY_additional_parameters
+#######################################################################
+# Initialization:
+
+: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
+. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
+
+#######################################################################
+
+# Fill in some defaults if no values are specified
+
+OCF_RESKEY_binary_default="quantum-server"
+OCF_RESKEY_config_default="/etc/quantum/quantum.conf"
+OCF_RESKEY_user_default="quantum"
+OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
+OCF_RESKEY_monitor_binary_default="netstat"
+OCF_RESKEY_api_listened_port_default="9696"
+
+: ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
+: ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
+: ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
+: ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
+: ${OCF_RESKEY_monitor_binary=${OCF_RESKEY_monitor_binary_default}}
+: ${OCF_RESKEY_api_listened_port=${OCF_RESKEY_api_listened_port_default}}
+
+#######################################################################
+
+usage() {
+    cat <<UEND
+        usage: $0 (start|stop|validate-all|meta-data|status|monitor)
+
+        $0 manages an OpenStack Quantum Server (quantum-server) process as an HA resource 
+
+        The 'start' operation starts the Quantum Server service.
+        The 'stop' operation stops the Quantum Server service.
+        The 'validate-all' operation reports whether the parameters are valid
+        The 'meta-data' operation reports this RA's meta-data information
+        The 'status' operation reports whether the Quantum Server service is running
+        The 'monitor' operation reports whether the Quantum Server service seems to be working
+
+UEND
+}
+
+meta_data() {
+    cat <<END
+<?xml version="1.0"?>
+<!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
+<resource-agent name="quantum-server">
+<version>1.0</version>
+
+<longdesc lang="en">
+Resource agent for the OpenStack Quantum Server (quantum-server)
+May manage a quantum-server instance or a clone set that 
+creates a distributed quantum-server cluster.
+</longdesc>
+<shortdesc lang="en">Manages the OpenStack Quantum Server (quantum-server)</shortdesc>
+<parameters>
+
+<parameter name="binary" unique="0" required="0">
+<longdesc lang="en">
+Location of the OpenStack Quantum Server server binary (quantum-server)
+</longdesc>
+<shortdesc lang="en">OpenStack Quantum Server server binary (quantum-server)</shortdesc>
+<content type="string" default="${OCF_RESKEY_binary_default}" />
+</parameter>
+
+<parameter name="config" unique="0" required="0">
+<longdesc lang="en">
+Location of the OpenStack Quantum Server (quantum-server) configuration file
+</longdesc>
+<shortdesc lang="en">OpenStack Quantum Server (quantum-server) config file</shortdesc>
+<content type="string" default="${OCF_RESKEY_config_default}" />
+</parameter>
+
+<parameter name="user" unique="0" required="0">
+<longdesc lang="en">
+User running OpenStack Quantum Server (quantum-server)
+</longdesc>
+<shortdesc lang="en">OpenStack Quantum Server (quantum-server) user</shortdesc>
+<content type="string" default="${OCF_RESKEY_user_default}" />
+</parameter>
+
+<parameter name="pid" unique="0" required="0">
+<longdesc lang="en">
+The pid file to use for this OpenStack Quantum Server (quantum-server) instance
+</longdesc>
+<shortdesc lang="en">OpenStack Quantum Server (quantum-server) pid file</shortdesc>
+<content type="string" default="${OCF_RESKEY_pid_default}" />
+</parameter>
+
+<parameter name="additional_parameters" unique="0" required="0">
+<longdesc lang="en">
+Additional parameters to pass on to the OpenStack Quantum Server (quantum-server)
+</longdesc>
+<shortdesc lang="en">Additional parameters for quantum-server</shortdesc>
+<content type="string" />
+</parameter>
+
+</parameters>
+
+<actions>
+<action name="start" timeout="10" />
+<action name="stop" timeout="10" />
+<action name="status" timeout="10" />
+<action name="monitor" timeout="5" interval="10" />
+<action name="validate-all" timeout="5" />
+<action name="meta-data" timeout="5" />
+</actions>
+</resource-agent>
+END
+}
+
+#######################################################################
+# Functions invoked by resource manager actions
+
+quantum_server_validate() {
+    local rc
+
+    check_binary $OCF_RESKEY_binary
+
+    # A config file on shared storage that is not available
+    # during probes is OK.
+    if [ ! -f $OCF_RESKEY_config ]; then
+        if ! ocf_is_probe; then
+            ocf_log err "Config $OCF_RESKEY_config doesn't exist"
+            return $OCF_ERR_INSTALLED
+        fi
+        ocf_log_warn "Config $OCF_RESKEY_config not available during a probe"
+    fi
+
+    getent passwd $OCF_RESKEY_user >/dev/null 2>&1
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        ocf_log err "User $OCF_RESKEY_user doesn't exist"
+        return $OCF_ERR_INSTALLED
+    fi
+
+    true
+}
+
+quantum_server_status() {
+    local pid
+    local rc
+
+    if [ ! -f $OCF_RESKEY_pid ]; then
+        ocf_log info "OpenStack Quantum Server (quantum-server) is not running"
+        return $OCF_NOT_RUNNING
+    else
+        pid=`cat $OCF_RESKEY_pid`
+    fi
+
+    ocf_run -warn kill -s 0 $pid
+    rc=$?
+    if [ $rc -eq 0 ]; then
+        return $OCF_SUCCESS
+    else
+        ocf_log info "Old PID file found, but OpenStack Quantum Server (quantum-server) is not running"
+        return $OCF_NOT_RUNNING
+    fi
+}
+
+quantum_server_monitor() {
+    local rc
+    local token
+
+    quantum_server_status
+    rc=$?
+
+    # If status returned anything but success, return that immediately
+    if [ $rc -ne $OCF_SUCCESS ]; then
+        return $rc
+    fi
+
+    # Check whether we are supposed to monitor by logging into quantum-server
+    # and do it if that's the case.
+    if ! check_binary $OCF_RESKEY_monitor_binary; then 
+		ocf_log warn "$OCF_RESKEY_monitor_binary missing, can not monitor!" 
+	else
+		# Check osapi_compute and osapi_volume ports
+		API_LIST_CHECK=`$OCF_RESKEY_monitor_binary -a | egrep -E $OCF_RESKEY_api_listened_port | egrep -q "LISTEN"`
+    fi
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        ocf_log err "Quantum Server is not connected to the queue message service: $rc"
+        return $OCF_NOT_RUNNING
+    fi
+
+    ocf_log debug "OpenStack Quantum Server (quantum-server) monitor succeeded"
+    return $OCF_SUCCESS
+}
+
+quantum_server_start() {
+    local rc
+
+    quantum_server_status
+    rc=$?
+    if [ $rc -eq $OCF_SUCCESS ]; then
+        ocf_log info "OpenStack Quantum Server (quantum-server) already running"
+        return $OCF_SUCCESS
+    fi
+
+    # run the actual quantum-server daemon. Don't use ocf_run as we're sending the tool's output
+    # straight to /dev/null anyway and using ocf_run would break stdout-redirection here.
+    su ${OCF_RESKEY_user} -s /bin/sh -c "${OCF_RESKEY_binary} --config-file=$OCF_RESKEY_config \
+       $OCF_RESKEY_additional_parameters"' >> /dev/null 2>&1 & echo $!' > $OCF_RESKEY_pid
+
+    # Spin waiting for the server to come up.
+    # Let the CRM/LRM time us out if required
+	sleep 1
+    while true; do
+    quantum_server_monitor
+    rc=$?
+    [ $rc -eq $OCF_SUCCESS ] && break
+    if [ $rc -ne $OCF_NOT_RUNNING ]; then
+        ocf_log err "OpenStack Quantum Server (quantum-server) start failed"
+        exit $OCF_ERR_GENERIC
+    fi
+    sleep 1
+    done
+
+    ocf_log info "OpenStack Quantum Server (quantum-server) started"
+    return $OCF_SUCCESS
+}
+
+quantum_server_stop() {
+    local rc
+    local pid
+
+    quantum_server_status
+    rc=$?
+    if [ $rc -eq $OCF_NOT_RUNNING ]; then
+        ocf_log info "OpenStack Quantum Server (quantum-server) already stopped"
+        return $OCF_SUCCESS
+    fi
+
+    # Try SIGTERM
+    pid=`cat $OCF_RESKEY_pid`
+    ocf_run kill -s TERM $pid
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        ocf_log err "OpenStack Quantum Server (quantum-server) couldn't be stopped"
+        exit $OCF_ERR_GENERIC
+    fi
+
+    # stop waiting
+    shutdown_timeout=15
+    if [ -n "$OCF_RESKEY_CRM_meta_timeout" ]; then
+        shutdown_timeout=$((($OCF_RESKEY_CRM_meta_timeout/1000)-5))
+    fi
+    count=0
+    while [ $count -lt $shutdown_timeout ]; do
+        quantum_server_status
+        rc=$?
+        if [ $rc -eq $OCF_NOT_RUNNING ]; then
+            break
+        fi
+        count=`expr $count + 1`
+        sleep 1
+        ocf_log debug "OpenStack Quantum Server (quantum-server) still hasn't stopped yet. Waiting ..."
+    done
+
+    quantum_server_status
+    rc=$?
+    if [ $rc -ne $OCF_NOT_RUNNING ]; then
+        # SIGTERM didn't help either, try SIGKILL
+        ocf_log info "OpenStack Quantum Server (quantum-server) failed to stop after ${shutdown_timeout}s \
+          using SIGTERM. Trying SIGKILL ..."
+        ocf_run kill -s KILL $pid
+    fi
+
+    ocf_log info "OpenStack Quantum Server (quantum-server) stopped"
+
+    rm -f $OCF_RESKEY_pid
+
+    return $OCF_SUCCESS
+}
+
+#######################################################################
+
+case "$1" in
+  meta-data)    meta_data
+                exit $OCF_SUCCESS;;
+  usage|help)   usage
+                exit $OCF_SUCCESS;;
+esac
+
+# Anything except meta-data and help must pass validation
+quantum_server_validate || exit $?
+
+# What kind of method was invoked?
+case "$1" in
+  start)        quantum_server_start;;
+  stop)         quantum_server_stop;;
+  status)       quantum_server_status;;
+  monitor)      quantum_server_monitor;;
+  validate-all) ;;
+  *)            usage
+                exit $OCF_ERR_UNIMPLEMENTED;;
+esac
+
+
