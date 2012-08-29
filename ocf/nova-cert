@@ -229,7 +229,7 @@ nova_cert_monitor() {
     if ! check_binary $OCF_RESKEY_monitor_binary; then
                 ocf_log warn "$OCF_RESKEY_monitor_binary missing, can not monitor!"
         else
-			if [ $OCF_RESKEY_zeromq = true ]; then
+			if ocf_is_true "$OCF_RESKEY_zeromq"; then
 				PID=`cat $OCF_RESKEY_pid`
 				CERT_DATABASE_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep "$OCF_RESKEY_database_server_port" | grep "$PID" | grep -q "ESTABLISHED"`
 				rc_database=$?
