@@ -2,11 +2,7 @@ Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: openstack-resource-agents
 Source: http://github.com/madkiss/openstack-resource-agents
 
-Files: Makefile
-Copyright: 2012 hastexo Professional Services GmbH
-License: Apache
-
-Files: debian/*
+Files: Makefile debian/* ocf/glance-api ocf/glance-registry ocf/keystone
 Copyright: 2012 hastexo Professional Services GmbH
 License: Apache
 
@@ -14,16 +10,8 @@ Files: ocf/nova-api ocf/nova-cert ocf/nova-consoleauth ocf/nova-novnc ocf/nova-s
 Copyright: 2012 Sebastien Han 
 License: Apache
 
-Files: ocf/nova-network ocf/nova-objectstore ocf/volume
-Copyright: 2012 Alessandro Tagliapietra
-License: Apache
-
 Files: ocf/quantum-server 
 Copyright: 2012 Emilien Macchi
-License: Apache
-
-Files: ocf/glance-api ocf/glance-registry ocf/keystone
-Copyright: 2012 hastexo Professional Services GmbH
 License: Apache
 
 License: Apache
