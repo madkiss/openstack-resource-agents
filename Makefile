@@ -19,8 +19,10 @@
 # define some common variables
 INSTALL = /usr/bin/install
 
+default:
+	
 install: 
-	mkdir -p $(DESTDIR)/resource.d/openstack
+	mkdir -p $(DESTDIR)/usr/lib/ocf/resource.d/openstack
 	for file in ocf/*; do \
 		$(INSTALL) -t $(DESTDIR)/usr/lib/ocf/resource.d/openstack -m 0755 $${file} ; \
 	done
