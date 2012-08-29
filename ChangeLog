@@ -1,0 +1,19 @@
+Martin Loschwitz <martin.loschwitz@hastexo.com>	2012-08-29
+
+    Deleted the RAs for nova-objectstore, nova-network and nova-volume due to QA problems
+
+Martin Loschwitz <martin.loschwitz@hastexo.com>	2012-08-29
+
+    Add the debian subdirectory for easier packaging
+
+Martin Loschwitz <martin.loschwitz@hastexo.com>	2012-08-29
+
+    Add missing reference to DESTDIR to Makefile
+
+Martin Loschwitz <martin.loschwitz@hastexo.com>	2012-08-29
+
+    Initial checkin of this repository
+
+Martin Loschwitz <martin.loschwitz@hastexo.com>	2012-08-28
+
+    Initial commit
