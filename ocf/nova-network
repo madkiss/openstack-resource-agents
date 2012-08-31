@@ -17,6 +17,7 @@
 #
 # OCF instance parameters:
 #   OCF_RESKEY_binary
+#   OCF_RESKEY_dhcp_binary
 #   OCF_RESKEY_config
 #   OCF_RESKEY_user
 #   OCF_RESKEY_pid
