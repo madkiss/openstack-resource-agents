@@ -231,7 +231,7 @@ nova_scheduler_monitor() {
     else
 	    if [ $OCF_RESKEY_zeromq = true ]; then
 		    PID=`cat $OCF_RESKEY_pid`
-		    SCHEDULER_DATABASE_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep "$OCF_RESKEY_database_server_port" | grep "$PID" | grep -q "ESTABLISHED"`
+		    SCHEDULER_DATABASE_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$PID" | grep -qs "ESTABLISHED"`
 		    rc_database=$?
 		    if [ $rc_database -ne 0 ]; then
 		        ocf_log err "Nova Scheduler is not connected to the database server: $rc_database"
@@ -240,9 +240,9 @@ nova_scheduler_monitor() {
 	    else
             PID=`cat $OCF_RESKEY_pid`
             # check the connections according to the PID
-            SCHEDULER_DATABASE_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep "$OCF_RESKEY_database_server_port" | grep "$PID" | grep -q "ESTABLISHED"`
+            SCHEDULER_DATABASE_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$PID" | grep -qs "ESTABLISHED"`
             rc_database=$?
-            SCHEDULER_AMQP_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep "$OCF_RESKEY_amqp_server_port" | grep "$PID" | grep -q "ESTABLISHED"`
+            SCHEDULER_AMQP_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_amqp_server_port" | grep -s "$PID" | grep -qs "ESTABLISHED"`
             rc_amqp=$?
 		    if [ $rc_amqp -ne 0 ] || [ $rc_database -ne 0 ]; then
 	            ocf_log err "Nova Scheduler is not connected to the AMQP server and/or the database server: AMQP connection test returned $rc_amqp and database connection test returned $rc_database"
