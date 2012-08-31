@@ -201,7 +201,7 @@ quantum_server_monitor() {
 		ocf_log warn "$OCF_RESKEY_monitor_binary missing, can not monitor!" 
 	else
 		# Check osapi_compute and osapi_volume ports
-		API_LIST_CHECK=`$OCF_RESKEY_monitor_binary -a | egrep -E $OCF_RESKEY_api_listened_port | egrep -q "LISTEN"`
+		API_LIST_CHECK=`$OCF_RESKEY_monitor_binary -a | grep -s $OCF_RESKEY_api_listened_port | grep -qs "LISTEN"`
     fi
     rc=$?
     if [ $rc -ne 0 ]; then
