@@ -229,7 +229,7 @@ nova_cert_monitor() {
     # Check whether we are supposed to monitor by logging into nova-cert
     # and do it if that's the case.
     if ! check_binary $OCF_RESKEY_monitor_binary; then
-                ocf_log warn "$OCF_RESKEY_monitor_binary missing, can not monitor!"
+        ocf_log warn "$OCF_RESKEY_monitor_binary missing, can not monitor!"
     else
 	    if ocf_is_true "$OCF_RESKEY_zeromq"; then
 		    PID=`cat $OCF_RESKEY_pid`
