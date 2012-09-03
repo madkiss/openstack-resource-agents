@@ -78,42 +78,42 @@ meta_data() {
 <version>1.0</version>
 
 <longdesc lang="en">
-Resource agent for the OpenStack Nova ConsoleAuth Service (nova-consoleauth)
+Resource agent for the OpenStack Nova Console Auth Service (nova-consoleauth)
 May manage a nova-consoleauth instance or a clone set that 
 creates a distributed nova-consoleauth cluster.
 </longdesc>
-<shortdesc lang="en">Manages the OpenStack Nova ConsoleAuth (nova-consoleauth)</shortdesc>
+<shortdesc lang="en">Manages the OpenStack Nova Console Auth (nova-consoleauth)</shortdesc>
 <parameters>
 
 <parameter name="binary" unique="0" required="0">
 <longdesc lang="en">
-Location of the OpenStack Nova ConsoleAuth server binary (nova-consoleauth)
+Location of the OpenStack Nova Console Auth server binary (nova-consoleauth)
 </longdesc>
-<shortdesc lang="en">OpenStack Nova ConsoleAuth server binary (nova-consoleauth)</shortdesc>
+<shortdesc lang="en">OpenStack Nova Console Auth server binary (nova-consoleauth)</shortdesc>
 <content type="string" default="${OCF_RESKEY_binary_default}" />
 </parameter>
 
 <parameter name="config" unique="0" required="0">
 <longdesc lang="en">
-Location of the OpenStack Nova ConsoleAuth (nova-consoleauth) configuration file
+Location of the OpenStack Nova Console Auth (nova-consoleauth) configuration file
 </longdesc>
-<shortdesc lang="en">OpenStack Nova ConsoleAuth (nova-consoleauth registry) config file</shortdesc>
+<shortdesc lang="en">OpenStack Nova Console Auth (nova-consoleauth registry) config file</shortdesc>
 <content type="string" default="${OCF_RESKEY_config_default}" />
 </parameter>
 
 <parameter name="user" unique="0" required="0">
 <longdesc lang="en">
-User running OpenStack Nova ConsoleAuth (nova-consoleauth)
+User running OpenStack Nova Console Auth (nova-consoleauth)
 </longdesc>
-<shortdesc lang="en">OpenStack Nova ConsoleAuth (nova-consoleauth) user</shortdesc>
+<shortdesc lang="en">OpenStack Nova Console Auth (nova-consoleauth) user</shortdesc>
 <content type="string" default="${OCF_RESKEY_user_default}" />
 </parameter>
 
 <parameter name="pid" unique="0" required="0">
 <longdesc lang="en">
-The pid file to use for this OpenStack Nova ConsoleAuth (nova-consoleauth) instance
+The pid file to use for this OpenStack Nova Console Auth (nova-consoleauth) instance
 </longdesc>
-<shortdesc lang="en">OpenStack Nova ConsoleAuth (nova-consoleauth) pid file</shortdesc>
+<shortdesc lang="en">OpenStack Nova Console Auth (nova-consoleauth) pid file</shortdesc>
 <content type="string" default="${OCF_RESKEY_pid_default}" />
 </parameter>
 
@@ -143,7 +143,7 @@ If zeromq is used, this will disable the connection test to the AMQP server
 
 <parameter name="additional_parameters" unique="0" required="0">
 <longdesc lang="en">
-Additional parameters to pass on to the OpenStack Nova ConsoleAuth (nova-consoleauth)
+Additional parameters to pass on to the OpenStack Nova Console Auth (nova-consoleauth)
 </longdesc>
 <shortdesc lang="en">Additional parameters for nova-consoleauth</shortdesc>
 <content type="string" />
@@ -196,7 +196,7 @@ nova_consoleauth_status() {
     local rc
 
     if [ ! -f $OCF_RESKEY_pid ]; then
-        ocf_log info "OpenStack Nova ConsoleAuth (nova-consoleauth) is not running"
+        ocf_log info "OpenStack Nova Console Auth (nova-consoleauth) is not running"
         return $OCF_NOT_RUNNING
     else
         pid=`cat $OCF_RESKEY_pid`
@@ -207,7 +207,7 @@ nova_consoleauth_status() {
     if [ $rc -eq 0 ]; then
         return $OCF_SUCCESS
     else
-        ocf_log info "Old PID file found, but OpenStack Nova ConsoleAuth (nova-consoleauth) is not running"
+        ocf_log info "Old PID file found, but OpenStack Nova Console Auth (nova-consoleauth) is not running"
         return $OCF_NOT_RUNNING
     fi
 }
@@ -215,7 +215,9 @@ nova_consoleauth_status() {
 nova_consoleauth_monitor() {
     local rc
     local token
-
+    local rc_database
+    local rc_amqp
+    
     nova_consoleauth_status
     rc=$?
 
@@ -227,29 +229,29 @@ nova_consoleauth_monitor() {
     # Check whether we are supposed to monitor by logging into nova-consoleauth
     # and do it if that's the case.
     if ! check_binary $OCF_RESKEY_monitor_binary; then
-                ocf_log warn "$OCF_RESKEY_monitor_binary missing, can not monitor!"
-        else
-			if ocf_is_true "$OCF_RESKEY_zeromq"; then
-				PID=`cat $OCF_RESKEY_pid`
-				CONSOLE_DATABASE_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$PID" | grep -qs "ESTABLISHED"`
-				rc_database=$?
-				if [ $rc_database -ne 0 ]; then
-				    ocf_log err "Nova ConsoleAuth is not connected to the database server: $rc_database"
-				    return $OCF_NOT_RUNNING
-				fi
-			else
-                PID=`cat $OCF_RESKEY_pid`
-                # check the connections according to the PID
-                CONSOLE_DATABASE_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$PID" | grep -qs "ESTABLISHED"`
-                rc_database=$?
-                CONSOLE_AMQP_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_amqp_server_port" | egrep -s "$PID" | grep -qs "ESTABLISHED"`
-                rc_amqp=$?
-				if [ $rc_amqp -ne 0 ] || [ $rc_database -ne 0 ]; then
-				    ocf_log err "Nova ConsoleAuth is not connected to the AMQP server and/or the database server: AMQP connection test returned $rc_amqp and database connection test returned $rc_database"
-				    return $OCF_NOT_RUNNING
-				fi
+        ocf_log warn "$OCF_RESKEY_monitor_binary missing, can not monitor!"
+    else
+		if ocf_is_true "$OCF_RESKEY_zeromq"; then
+			PID=`cat $OCF_RESKEY_pid`
+			CONSOLE_DATABASE_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$PID" | grep -qs "ESTABLISHED"`
+			rc_database=$?
+			if [ $rc_database -ne 0 ]; then
+			    ocf_log err "Nova ConsoleAuth is not connected to the database server: $rc_database"
+			    return $OCF_NOT_RUNNING
 			fi
-        fi
+		else
+            PID=`cat $OCF_RESKEY_pid`
+            # check the connections according to the PID
+            CONSOLE_DATABASE_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$PID" | grep -qs "ESTABLISHED"`
+            rc_database=$?
+            CONSOLE_AMQP_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_amqp_server_port" | egrep -s "$PID" | grep -qs "ESTABLISHED"`
+            rc_amqp=$?
+		    if [ $rc_amqp -ne 0 ] || [ $rc_database -ne 0 ]; then
+			    ocf_log err "Nova ConsoleAuth is not connected to the AMQP server and/or the database server: AMQP connection test returned $rc_amqp and database connection test returned $rc_database"
+			    return $OCF_NOT_RUNNING
+			fi
+		fi
+    fi
 
     ocf_log debug "OpenStack Nova ConsoleAuth (nova-consoleauth) monitor succeeded"
     return $OCF_SUCCESS
