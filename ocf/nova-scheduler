@@ -78,42 +78,42 @@ meta_data() {
 <version>1.0</version>
 
 <longdesc lang="en">
-Resource agent for the OpenStack NovaScheduler Service (nova-scheduler)
+Resource agent for the OpenStack Nova Scheduler Service (nova-scheduler)
 May manage a nova-scheduler instance or a clone set that 
 creates a distributed nova-scheduler cluster.
 </longdesc>
-<shortdesc lang="en">Manages the OpenStack SchedulerService (nova-scheduler)</shortdesc>
+<shortdesc lang="en">Manages the OpenStack Scheduler Service (nova-scheduler)</shortdesc>
 <parameters>
 
 <parameter name="binary" unique="0" required="0">
 <longdesc lang="en">
-Location of the OpenStack NovaScheduler server binary (nova-scheduler)
+Location of the OpenStack Nova Scheduler server binary (nova-scheduler)
 </longdesc>
-<shortdesc lang="en">OpenStack NovaScheduler server binary (nova-scheduler)</shortdesc>
+<shortdesc lang="en">OpenStack Nova Scheduler server binary (nova-scheduler)</shortdesc>
 <content type="string" default="${OCF_RESKEY_binary_default}" />
 </parameter>
 
 <parameter name="config" unique="0" required="0">
 <longdesc lang="en">
-Location of the OpenStack SchedulerService (nova-scheduler) configuration file
+Location of the OpenStack Scheduler Service (nova-scheduler) configuration file
 </longdesc>
-<shortdesc lang="en">OpenStack NovaScheduler (nova-scheduler registry) config file</shortdesc>
+<shortdesc lang="en">OpenStack Nova Scheduler (nova-scheduler registry) config file</shortdesc>
 <content type="string" default="${OCF_RESKEY_config_default}" />
 </parameter>
 
 <parameter name="user" unique="0" required="0">
 <longdesc lang="en">
-User running OpenStack SchedulerService (nova-scheduler)
+User running OpenStack Scheduler Service (nova-scheduler)
 </longdesc>
-<shortdesc lang="en">OpenStack SchedulerService (nova-scheduler) user</shortdesc>
+<shortdesc lang="en">OpenStack Scheduler Service (nova-scheduler) user</shortdesc>
 <content type="string" default="${OCF_RESKEY_user_default}" />
 </parameter>
 
 <parameter name="pid" unique="0" required="0">
 <longdesc lang="en">
-The pid file to use for this OpenStack SchedulerService (nova-scheduler) instance
+The pid file to use for this OpenStack Scheduler Service (nova-scheduler) instance
 </longdesc>
-<shortdesc lang="en">OpenStack SchedulerService (nova-scheduler) pid file</shortdesc>
+<shortdesc lang="en">OpenStack Scheduler Service (nova-scheduler) pid file</shortdesc>
 <content type="string" default="${OCF_RESKEY_pid_default}" />
 </parameter>
 
@@ -143,7 +143,7 @@ If zeromq is used, this will disable the connection test to the AMQP server
 
 <parameter name="additional_parameters" unique="0" required="0">
 <longdesc lang="en">
-Additional parameters to pass on to the OpenStack SchedulerService (nova-scheduler)
+Additional parameters to pass on to the OpenStack Scheduler Service (nova-scheduler)
 </longdesc>
 <shortdesc lang="en">Additional parameters for nova-scheduler</shortdesc>
 <content type="string" />
@@ -196,7 +196,7 @@ nova_scheduler_status() {
     local rc
 
     if [ ! -f $OCF_RESKEY_pid ]; then
-        ocf_log info "OpenStack NovaScheduler (nova-scheduler) is not running"
+        ocf_log info "OpenStack Nova Scheduler (nova-scheduler) is not running"
         return $OCF_NOT_RUNNING
     else
         pid=`cat $OCF_RESKEY_pid`
@@ -207,7 +207,7 @@ nova_scheduler_status() {
     if [ $rc -eq 0 ]; then
         return $OCF_SUCCESS
     else
-        ocf_log info "Old PID file found, but OpenStack NovaScheduler (nova-scheduler) is not running"
+        ocf_log info "Old PID file found, but OpenStack Nova Scheduler (nova-scheduler) is not running"
         return $OCF_NOT_RUNNING
     fi
 }
@@ -215,6 +215,8 @@ nova_scheduler_status() {
 nova_scheduler_monitor() {
     local rc
     local token
+    local rc_database
+    local rc_amqp
 
     nova_scheduler_status
     rc=$?
@@ -229,7 +231,7 @@ nova_scheduler_monitor() {
     if ! check_binary $OCF_RESKEY_monitor_binary; then
         ocf_log warn "$OCF_RESKEY_monitor_binary missing, can not monitor!"
     else
-            if ocf_is_true "$OCF_RESKEY_zeromq"; then
+        if ocf_is_true "$OCF_RESKEY_zeromq"; then
 		    PID=`cat $OCF_RESKEY_pid`
 		    SCHEDULER_DATABASE_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$PID" | grep -qs "ESTABLISHED"`
 		    rc_database=$?
@@ -251,7 +253,7 @@ nova_scheduler_monitor() {
 	    fi
     fi
 
-    ocf_log debug "OpenStack NovaScheduler (nova-scheduler) monitor succeeded"
+    ocf_log debug "OpenStack Nova Scheduler (nova-scheduler) monitor succeeded"
     return $OCF_SUCCESS
 }
 
@@ -261,7 +263,7 @@ nova_scheduler_start() {
     nova_scheduler_status
     rc=$?
     if [ $rc -eq $OCF_SUCCESS ]; then
-        ocf_log info "OpenStack NovaScheduler (nova-scheduler) already running"
+        ocf_log info "OpenStack Nova Scheduler (nova-scheduler) already running"
         return $OCF_SUCCESS
     fi
 
@@ -278,13 +280,13 @@ nova_scheduler_start() {
     rc=$?
     [ $rc -eq $OCF_SUCCESS ] && break
     if [ $rc -ne $OCF_NOT_RUNNING ]; then
-        ocf_log err "OpenStack NovaScheduler (nova-scheduler) start failed"
+        ocf_log err "OpenStack Nova Scheduler (nova-scheduler) start failed"
         exit $OCF_ERR_GENERIC
     fi
     sleep 1
     done
 
-    ocf_log info "OpenStack NovaScheduler (nova-scheduler) started"
+    ocf_log info "OpenStack Nova Scheduler (nova-scheduler) started"
     return $OCF_SUCCESS
 }
 
@@ -295,7 +297,7 @@ nova_scheduler_stop() {
     nova_scheduler_status
     rc=$?
     if [ $rc -eq $OCF_NOT_RUNNING ]; then
-        ocf_log info "OpenStack NovaScheduler (nova-scheduler) already stopped"
+        ocf_log info "OpenStack Nova Scheduler (nova-scheduler) already stopped"
         return $OCF_SUCCESS
     fi
 
@@ -304,7 +306,7 @@ nova_scheduler_stop() {
     ocf_run kill -s TERM $pid
     rc=$?
     if [ $rc -ne 0 ]; then
-        ocf_log err "OpenStack NovaScheduler (nova-scheduler) couldn't be stopped"
+        ocf_log err "OpenStack Nova Scheduler (nova-scheduler) couldn't be stopped"
         exit $OCF_ERR_GENERIC
     fi
 
@@ -322,19 +324,19 @@ nova_scheduler_stop() {
         fi
         count=`expr $count + 1`
         sleep 1
-        ocf_log debug "OpenStack NovaScheduler (nova-scheduler) still hasn't stopped yet. Waiting ..."
+        ocf_log debug "OpenStack Nova Scheduler (nova-scheduler) still hasn't stopped yet. Waiting ..."
     done
 
     nova_scheduler_status
     rc=$?
     if [ $rc -ne $OCF_NOT_RUNNING ]; then
         # SIGTERM didn't help either, try SIGKILL
-        ocf_log info "OpenStack NovaScheduler (nova-scheduler) failed to stop after ${shutdown_timeout}s \
+        ocf_log info "OpenStack Nova Scheduler (nova-scheduler) failed to stop after ${shutdown_timeout}s \
           using SIGTERM. Trying SIGKILL ..."
         ocf_run kill -s KILL $pid
     fi
 
-    ocf_log info "OpenStack NovaScheduler (nova-scheduler) stopped"
+    ocf_log info "OpenStack Nova Scheduler (nova-scheduler) stopped"
 
     rm -f $OCF_RESKEY_pid
 
