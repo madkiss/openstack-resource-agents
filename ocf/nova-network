@@ -219,6 +219,8 @@ nova_network_status() {
 nova_network_monitor() {
     local rc
     local token
+    local rc_database
+    local rc_amqp
 
     nova_network_status
     rc=$?
