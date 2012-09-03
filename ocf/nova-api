@@ -72,48 +72,48 @@ meta_data() {
 <version>1.0</version>
 
 <longdesc lang="en">
-Resource agent for the OpenStack NovaAPI Service (nova-api)
+Resource agent for the OpenStack Nova API Service (nova-api)
 May manage a nova-api instance or a clone set that 
 creates a distributed nova-api cluster.
 </longdesc>
-<shortdesc lang="en">Manages the OpenStack NovaAPI (nova-api)</shortdesc>
+<shortdesc lang="en">Manages the OpenStack Nova API (nova-api)</shortdesc>
 <parameters>
 
 <parameter name="binary" unique="0" required="0">
 <longdesc lang="en">
-Location of the OpenStack NovaAPI server binary (nova-api)
+Location of the OpenStack Nova API server binary (nova-api)
 </longdesc>
-<shortdesc lang="en">OpenStack NovaAPI server binary (nova-api)</shortdesc>
+<shortdesc lang="en">OpenStack Nova API server binary (nova-api)</shortdesc>
 <content type="string" default="${OCF_RESKEY_binary_default}" />
 </parameter>
 
 <parameter name="config" unique="0" required="0">
 <longdesc lang="en">
-Location of the OpenStack NovaAPI (nova-api) configuration file
+Location of the OpenStack Nova API (nova-api) configuration file
 </longdesc>
-<shortdesc lang="en">OpenStack NovaAPI (nova-api registry) config file</shortdesc>
+<shortdesc lang="en">OpenStack Nova API (nova-api registry) config file</shortdesc>
 <content type="string" default="${OCF_RESKEY_config_default}" />
 </parameter>
 
 <parameter name="user" unique="0" required="0">
 <longdesc lang="en">
-User running OpenStack NovaAPI (nova-api)
+User running OpenStack Nova API (nova-api)
 </longdesc>
-<shortdesc lang="en">OpenStack NovaAPI (nova-api) user</shortdesc>
+<shortdesc lang="en">OpenStack Nova API (nova-api) user</shortdesc>
 <content type="string" default="${OCF_RESKEY_user_default}" />
 </parameter>
 
 <parameter name="pid" unique="0" required="0">
 <longdesc lang="en">
-The pid file to use for this OpenStack NovaAPI (nova-api) instance
+The pid file to use for this OpenStack Nova API (nova-api) instance
 </longdesc>
-<shortdesc lang="en">OpenStack NovaAPI (nova-api) pid file</shortdesc>
+<shortdesc lang="en">OpenStack Nova API (nova-api) pid file</shortdesc>
 <content type="string" default="${OCF_RESKEY_pid_default}" />
 </parameter>
 
 <parameter name="additional_parameters" unique="0" required="0">
 <longdesc lang="en">
-Additional parameters to pass on to the OpenStack NovaAPI (nova-api)
+Additional parameters to pass on to the OpenStack Nova API (nova-api)
 </longdesc>
 <shortdesc lang="en">Additional parameters for nova-api</shortdesc>
 <content type="string" />
@@ -166,7 +166,7 @@ nova_api_status() {
     local rc
 
     if [ ! -f $OCF_RESKEY_pid ]; then
-        ocf_log info "OpenStack NovaAPI (nova-api) is not running"
+        ocf_log info "OpenStack Nova API (nova-api) is not running"
         return $OCF_NOT_RUNNING
     else
         pid=`cat $OCF_RESKEY_pid`
@@ -177,7 +177,7 @@ nova_api_status() {
     if [ $rc -eq 0 ]; then
         return $OCF_SUCCESS
     else
-        ocf_log info "Old PID file found, but OpenStack NovaAPI (nova-api) is not running"
+        ocf_log info "Old PID file found, but OpenStack Nova API (nova-api) is not running"
         return $OCF_NOT_RUNNING
     fi
 }
@@ -200,7 +200,7 @@ nova_api_monitor() {
         ocf_log warn "$OCF_RESKEY_monitor_binary missing, can not monitor!" 
     else
         # Check ec2, osapi_compute, osapi_volume and metadata ports
-        API_LIST_CHECK=`"$OCF_RESKEY_monitor_binary" -a | egrep -E "\"$OCF_RESKEY_api_listened_port\"" | grep -sq "LISTEN"`
+        API_LIST_CHECK=`"$OCF_RESKEY_monitor_binary" -a | grep -sE "\"$OCF_RESKEY_api_listened_port\"" | grep -sq "LISTEN"`
     fi
     rc=$?
     if [ $rc -ne 0 ]; then
@@ -208,7 +208,7 @@ nova_api_monitor() {
         return $OCF_NOT_RUNNING
     fi
 
-    ocf_log debug "OpenStack NovaAPI (nova-api) monitor succeeded"
+    ocf_log debug "OpenStack Nova API (nova-api) monitor succeeded"
     return $OCF_SUCCESS
 }
 
@@ -218,7 +218,7 @@ nova_api_start() {
     nova_api_status
     rc=$?
     if [ $rc -eq $OCF_SUCCESS ]; then
-        ocf_log info "OpenStack NovaAPI (nova-api) already running"
+        ocf_log info "OpenStack Nova API (nova-api) already running"
         return $OCF_SUCCESS
     fi
 
@@ -235,13 +235,13 @@ nova_api_start() {
     rc=$?
     [ $rc -eq $OCF_SUCCESS ] && break
     if [ $rc -ne $OCF_NOT_RUNNING ]; then
-        ocf_log err "OpenStack NovaAPI (nova-api) start failed"
+        ocf_log err "OpenStack Nova API (nova-api) start failed"
         exit $OCF_ERR_GENERIC
     fi
     sleep 1
     done
 
-    ocf_log info "OpenStack NovaAPI (nova-api) started"
+    ocf_log info "OpenStack Nova API (nova-api) started"
     return $OCF_SUCCESS
 }
 
@@ -252,7 +252,7 @@ nova_api_stop() {
     nova_api_status
     rc=$?
     if [ $rc -eq $OCF_NOT_RUNNING ]; then
-        ocf_log info "OpenStack NovaAPI (nova-api) already stopped"
+        ocf_log info "OpenStack Nova API (nova-api) already stopped"
         return $OCF_SUCCESS
     fi
 
@@ -261,7 +261,7 @@ nova_api_stop() {
     ocf_run kill -s TERM $pid
     rc=$?
     if [ $rc -ne 0 ]; then
-        ocf_log err "OpenStack NovaAPI (nova-api) couldn't be stopped"
+        ocf_log err "OpenStack Nova API (nova-api) couldn't be stopped"
         exit $OCF_ERR_GENERIC
     fi
 
@@ -279,19 +279,19 @@ nova_api_stop() {
         fi
         count=`expr $count + 1`
         sleep 1
-        ocf_log debug "OpenStack NovaAPI (nova-api) still hasn't stopped yet. Waiting ..."
+        ocf_log debug "OpenStack Nova API (nova-api) still hasn't stopped yet. Waiting ..."
     done
 
     nova_api_status
     rc=$?
     if [ $rc -ne $OCF_NOT_RUNNING ]; then
         # SIGTERM didn't help either, try SIGKILL
-        ocf_log info "OpenStack NovaAPI (nova-api) failed to stop after ${shutdown_timeout}s \
+        ocf_log info "OpenStack Nova API (nova-api) failed to stop after ${shutdown_timeout}s \
           using SIGTERM. Trying SIGKILL ..."
         ocf_run kill -s KILL $pid
     fi
 
-    ocf_log info "OpenStack NovaAPI (nova-api) stopped"
+    ocf_log info "OpenStack Nova API (nova-api) stopped"
 
     rm -f $OCF_RESKEY_pid
 
