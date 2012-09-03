@@ -215,6 +215,8 @@ nova_volume_status() {
 nova_volume_monitor() {
     local rc
     local token
+    local rc_database
+    local rc_amqp
 
     nova_volume_status
     rc=$?
