@@ -200,12 +200,12 @@ quantum_server_monitor() {
     if ! check_binary $OCF_RESKEY_monitor_binary; then 
 		ocf_log warn "$OCF_RESKEY_monitor_binary missing, can not monitor!" 
 	else
-		# Check osapi_compute and osapi_volume ports
+		# Check quantum-server API port
 		API_LIST_CHECK=`$OCF_RESKEY_monitor_binary -a | grep -s $OCF_RESKEY_api_listened_port | grep -qs "LISTEN"`
     fi
     rc=$?
     if [ $rc -ne 0 ]; then
-        ocf_log err "Quantum Server is not connected to the queue message service: $rc"
+        ocf_log err "Quantum Server is not connected to the AMQP server: $rc"
         return $OCF_NOT_RUNNING
     fi
 
