@@ -3,7 +3,7 @@
 #
 # OpenStack NovaAPI (nova-api)
 #
-# Description:  Manages an OpenStack NovaAPI (nova-api) process as an HA resource
+# Description:  Manages an OpenStack Nova API (nova-api) process as an HA resource
 #
 # Authors:      Sébastien Han
 # Mainly inspired by the Glance API resource agent written by Martin Gerhard Loschwitz from Hastexo: http://goo.gl/whLpr
@@ -19,8 +19,10 @@
 #   OCF_RESKEY_config
 #   OCF_RESKEY_user
 #   OCF_RESKEY_pid
-#   OCF_RESKEY_monitor_binary
-#   OCF_RESKEY_api_listened_port
+#   OCF_RESKEY_os_username
+#   OCF_RESKEY_os_password
+#   OCF_RESKEY_os_tenant_name
+#   OCF_RESKEY_os_auth_url
 #   OCF_RESKEY_additional_parameters
 #######################################################################
 # Initialization:
