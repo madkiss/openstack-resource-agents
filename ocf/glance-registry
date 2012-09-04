@@ -260,10 +260,10 @@ glance_registry_monitor() {
           \"password\": \"$OCF_RESKEY_os_password\"}, \"tenantName\": \"$OCF_RESKEY_os_tenant_name\"}}" \
           -H "Content-type: application/json" $OCF_RESKEY_keystone_url | tr ',' '\n' | grep '"id":' \
           | cut -d'"' -f4 | head --lines 1` 
-        ocf_run -q curl -H "X-Auth-Token: $TOKEN" $OCF_RESKEY_url > /dev/null 2>&1
+        HTTP_CODE=`curl --write-out %{http_code} --output /dev/null -sH "X-Auth-Token: $TOKEN" $OCF_RESKEY_url`
         rc=$?
-        if [ $rc -ne 0 ]; then
-            ocf_log err "Failed to connect to the OpenStack ImageService (glance-registry): $rc"
+        if [ $rc -ne 0 ] || [ $CODE -ne 200 ]; then
+            ocf_log err "Failed to connect to the OpenStack ImageService (glance-registry): $rc and $HTTP_CODE"
             return $OCF_NOT_RUNNING
         fi
     fi
