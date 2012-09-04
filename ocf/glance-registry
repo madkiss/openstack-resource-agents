@@ -57,12 +57,12 @@ usage() {
 
         $0 manages an OpenStack ImageService (glance-registry) process as an HA resource 
 
-        The 'start' operation starts the glance-registry service.
-        The 'stop' operation stops the glance-registry service.
+        The 'start' operation starts the imaging service.
+        The 'stop' operation stops the imaging service.
         The 'validate-all' operation reports whether the parameters are valid
         The 'meta-data' operation reports this RA's meta-data information
-        The 'status' operation reports whether the glance-registry service is running
-        The 'monitor' operation reports whether the glance-registry service seems to be working
+        The 'status' operation reports whether the imaging service is running
+        The 'monitor' operation reports whether the imaging service seems to be working
 
 UEND
 }
