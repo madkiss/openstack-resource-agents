@@ -6,7 +6,7 @@
 # Description:  Manages an OpenStack Quantum Server (quantum-server) process as an HA resource
 #
 # Authors:      Emilien Macchi
-# Mainly inspired by the Nova API resource agent written by Sebastien Han : http://goo.gl/s8hOU
+# Mainly inspired by the Quantum API resource agent written by Sebastien Han : http://goo.gl/s8hOU
 # Which is also inspired by the Glance API resource agent written by Martin Gerhard Loschwitz from Hastexo: http://goo.gl/whLpr
 #
 # Support:      openstack@lists.launchpad.net
@@ -20,8 +20,10 @@
 #   OCF_RESKEY_config
 #   OCF_RESKEY_user
 #   OCF_RESKEY_pid
-#   OCF_RESKEY_monitor_binary
-#   OCF_RESKEY_api_listened_port
+#   OCF_RESKEY_os_username
+#   OCF_RESKEY_os_password
+#   OCF_RESKEY_os_tenant_name
+#   OCF_RESKEY_keystone_url
 #   OCF_RESKEY_additional_parameters
 #######################################################################
 # Initialization:
@@ -37,15 +39,21 @@ OCF_RESKEY_binary_default="quantum-server"
 OCF_RESKEY_config_default="/etc/quantum/quantum.conf"
 OCF_RESKEY_user_default="quantum"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
-OCF_RESKEY_monitor_binary_default="netstat"
-OCF_RESKEY_api_listened_port_default="9696"
+
+# Quantum V1 (Essex)
+OCF_RESKEY_url_default="http://127.0.0.1:9696"
+
+# Quantum V2 (Folsom)
+# OCF_RESKEY_url_default="http://127.0.0.1:9696/v2.0/"
+
+OCF_RESKEY_keystone_url_default="http://127.0.0.1:5000/v2.0/tokens"
 
 : ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
 : ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
 : ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
 : ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
-: ${OCF_RESKEY_monitor_binary=${OCF_RESKEY_monitor_binary_default}}
-: ${OCF_RESKEY_api_listened_port=${OCF_RESKEY_api_listened_port_default}}
+: ${OCF_RESKEY_url=${OCF_RESKEY_url_default}}
+: ${OCF_RESKEY_keystone_url=${OCF_RESKEY_keystone_url_default}}
 
 #######################################################################
 
@@ -112,6 +120,47 @@ The pid file to use for this OpenStack Quantum Server (quantum-server) instance
 <content type="string" default="${OCF_RESKEY_pid_default}" />
 </parameter>
 
+<parameter name="url" unique="0" required="0">
+<longdesc lang="en">
+The default URL to use for monitoring this instance (quantum-server) via curl. Important note: the monitor function doesn't accept http return code different than 200, for instance redirection code will generate an error. Don't forget the '/' at the end of your url endpoint. For example http://127.0.0.1:9696/v1.1 won't work and http://127.0.0.1:9696/v1.1/ will.
+</longdesc>
+<shortdesc lang="en">OpenStack Quantum API (quantum-server) monitor url</shortdesc>
+<content type="string" default="${OCF_RESKEY_url_default}" />
+</parameter>
+
+<parameter name="keystone_url" unique="0" required="0">
+<longdesc lang="en">
+The default URL to use to acquire a Quantum API (quantum-server) token for monitoring this instance
+of OpenStack Quantum API (quantum-server)
+</longdesc>
+<shortdesc lang="en">OpenStack Quantum API (quantum-server) url</shortdesc>
+<content type="string" default="${OCF_RESKEY_keystone_url_default}" />
+</parameter>
+
+<parameter name="os_username" unique="0" required="0">
+<longdesc lang="en">
+The username to use when connecting with Quantum API (quantum-server) for monitoring purposes
+</longdesc>
+<shortdesc lang="en">Quantum API (quantum-server) monitoring login</shortdesc>
+<content type="string" />
+</parameter>
+
+<parameter name="os_password" unique="0" required="0">
+<longdesc lang="en">
+The password to use when connecting Quantum API (quantum-server) for monitoring purposes
+</longdesc>
+<shortdesc lang="en">Quantum API (quantum-server) monitoring password</shortdesc>
+<content type="string" />
+</parameter>
+
+<parameter name="os_tenant_name" unique="0" required="0">
+<longdesc lang="en">
+The tenant to use when connecting Quantum API (quantum-server) for monitoring purposes
+</longdesc>
+<shortdesc lang="en">Quantum API (quantum-server) monitoring tenant</shortdesc>
+<content type="string" />
+</parameter>
+
 <parameter name="additional_parameters" unique="0" required="0">
 <longdesc lang="en">
 Additional parameters to pass on to the OpenStack Quantum Server (quantum-server)
@@ -123,10 +172,10 @@ Additional parameters to pass on to the OpenStack Quantum Server (quantum-server
 </parameters>
 
 <actions>
-<action name="start" timeout="10" />
-<action name="stop" timeout="10" />
-<action name="status" timeout="10" />
-<action name="monitor" timeout="5" interval="10" />
+<action name="start" timeout="20" />
+<action name="stop" timeout="20" />
+<action name="status" timeout="20" />
+<action name="monitor" timeout="10" interval="5" />
 <action name="validate-all" timeout="5" />
 <action name="meta-data" timeout="5" />
 </actions>
@@ -195,18 +244,19 @@ quantum_server_monitor() {
         return $rc
     fi
 
-    # Check whether we are supposed to monitor by logging into quantum-server
-    # and do it if that's the case.
-    if ! check_binary $OCF_RESKEY_monitor_binary; then 
-		ocf_log warn "$OCF_RESKEY_monitor_binary missing, can not monitor!" 
-	else
-		# Check quantum-server API port
-		API_LIST_CHECK=`$OCF_RESKEY_monitor_binary -a | grep -s $OCF_RESKEY_api_listened_port | grep -qs "LISTEN"`
-    fi
-    rc=$?
-    if [ $rc -ne 0 ]; then
-        ocf_log err "Quantum Server is not connected to the AMQP server: $rc"
-        return $OCF_NOT_RUNNING
+    # Check detailed information about this specific version of the API.
+    if [ -n "$OCF_RESKEY_os_username" ] && [ -n "$OCF_RESKEY_os_password" ] \
+    && [ -n "$OCF_RESKEY_os_tenant_name" ] && [ -n "$OCF_RESKEY_keystone_url" ]; then
+        TOKEN=`curl -s -d  "{\"auth\":{\"passwordCredentials\": {\"username\": \"$OCF_RESKEY_os_username\", \
+          \"password\": \"$OCF_RESKEY_os_password\"}, \"tenantName\": \"$OCF_RESKEY_os_tenant_name\"}}" \
+          -H "Content-type: application/json" $OCF_RESKEY_keystone_url | tr ',' '\n' | grep '"id":' \
+          | cut -d'"' -f4 | head --lines 1` 
+        HTTP_CODE=`curl --write-out %{http_code} --output /dev/null -sH "X-Auth-Token: $TOKEN" $OCF_RESKEY_url`
+        rc=$?
+        if [ $rc -ne 0 ] || [ $HTTP_CODE -ne 200 ]; then
+            ocf_log err "Failed to connect to the OpenStack Quantum API (quantum-server): $rc and $HTTP_CODE"
+            return $OCF_NOT_RUNNING
+        fi
     fi
 
     ocf_log debug "OpenStack Quantum Server (quantum-server) monitor succeeded"
@@ -321,5 +371,3 @@ case "$1" in
   *)            usage
                 exit $OCF_ERR_UNIMPLEMENTED;;
 esac
-
-
