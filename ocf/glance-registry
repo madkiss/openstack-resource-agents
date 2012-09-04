@@ -20,7 +20,6 @@
 #   OCF_RESKEY_os_username
 #   OCF_RESKEY_os_password
 #   OCF_RESKEY_os_tenant_name
-#   OCF_RESKEY_os_auth_url
 #   OCF_RESKEY_keystone_url
 #   OCF_RESKEY_url
 #   OCF_RESKEY_user
@@ -156,14 +155,6 @@ The tenant to use when connecting ImageService (glance-registry) for monitoring 
 <content type="string" />
 </parameter>
 
-<parameter name="os_auth_url" unique="0" required="0">
-<longdesc lang="en">
-The URL pointing to this ImageService (glance-registry) instance to use when connecting for monitoring purposes
-</longdesc>
-<shortdesc lang="en">ImageService (glance-registry) URL for monitoring login</shortdesc>
-<content type="string" />
-</parameter>
-
 <parameter name="additional_parameters" unique="0" required="0">
 <longdesc lang="en">
 Additional parameters to pass on to the OpenStack ImageService (glance-registry)
@@ -255,7 +246,7 @@ glance_registry_monitor() {
     # Check whether we are supposed to monitor by logging into glance-registry
     # and do it if that's the case.
     if [ -n "$OCF_RESKEY_os_username" ] && [ -n "$OCF_RESKEY_os_password" ] \
-    && [ -n "$OCF_RESKEY_os_tenant_name" ] && [ -n "$OCF_RESKEY_os_auth_url" ]; then
+    && [ -n "$OCF_RESKEY_os_tenant_name" ] && [ -n "$OCF_RESKEY_keystone_url" ]; then
         TOKEN=`curl -s -d  "{\"auth\":{\"passwordCredentials\": {\"username\": \"$OCF_RESKEY_os_username\", \
           \"password\": \"$OCF_RESKEY_os_password\"}, \"tenantName\": \"$OCF_RESKEY_os_tenant_name\"}}" \
           -H "Content-type: application/json" $OCF_RESKEY_keystone_url | tr ',' '\n' | grep '"id":' \
