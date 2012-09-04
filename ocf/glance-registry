@@ -116,7 +116,7 @@ The pid file to use for this OpenStack ImageService (glance-registry) instance
 
 <parameter name="url" unique="0" required="0">
 <longdesc lang="en">
-The default URL to use for monitoring this instance (glance-registry) via curl
+The default URL to use for monitoring this instance (glance-registry) via curl. Important note: the monitor function doesn't accept http return code different than 200, for instance redirection code will generate an error.
 </longdesc>
 <shortdesc lang="en">OpenStack ImageService (glance-registry) monitor url</shortdesc>
 <content type="string" default="${OCF_RESKEY_url_default}" />
