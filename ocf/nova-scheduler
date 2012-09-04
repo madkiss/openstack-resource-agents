@@ -60,12 +60,12 @@ usage() {
 
         $0 manages an OpenStack SchedulerService (nova-scheduler) process as an HA resource 
 
-        The 'start' operation starts the identity service.
-        The 'stop' operation stops the identity service.
+        The 'start' operation starts the scheduler service.
+        The 'stop' operation stops the scheduler service.
         The 'validate-all' operation reports whether the parameters are valid
         The 'meta-data' operation reports this RA's meta-data information
-        The 'status' operation reports whether the identity service is running
-        The 'monitor' operation reports whether the identity service seems to be working
+        The 'status' operation reports whether the scheduler service is running
+        The 'monitor' operation reports whether the scheduler service seems to be working
 
 UEND
 }

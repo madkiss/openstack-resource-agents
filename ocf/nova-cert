@@ -60,12 +60,12 @@ usage() {
 
         $0 manages an OpenStack Nova Cert (nova-cert) process as an HA resource 
 
-        The 'start' operation starts the identity service.
-        The 'stop' operation stops the identity service.
+        The 'start' operation starts the nova-cert service.
+        The 'stop' operation stops the nova-cert service.
         The 'validate-all' operation reports whether the parameters are valid
         The 'meta-data' operation reports this RA's meta-data information
-        The 'status' operation reports whether the identity service is running
-        The 'monitor' operation reports whether the identity service seems to be working
+        The 'status' operation reports whether the nova-cert service is running
+        The 'monitor' operation reports whether the nova-cert service seems to be working
 
 UEND
 }
