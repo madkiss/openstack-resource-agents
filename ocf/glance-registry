@@ -253,7 +253,7 @@ glance_registry_monitor() {
           | cut -d'"' -f4 | head --lines 1` 
         HTTP_CODE=`curl --write-out %{http_code} --output /dev/null -sH "X-Auth-Token: $TOKEN" $OCF_RESKEY_url`
         rc=$?
-        if [ $rc -ne 0 ] || [ $CODE -ne 200 ]; then
+        if [ $rc -ne 0 ] || [ $HTTP_CODE -ne 200 ]; then
             ocf_log err "Failed to connect to the OpenStack ImageService (glance-registry): $rc and $HTTP_CODE"
             return $OCF_NOT_RUNNING
         fi
