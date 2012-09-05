@@ -19,7 +19,6 @@
 #   OCF_RESKEY_config
 #   OCF_RESKEY_user
 #   OCF_RESKEY_pid
-#   OCF_RESKEY_monitor_binary
 #   OCF_RESKEY_console_port
 #   OCF_RESKEY_web
 #   OCF_RESKEY_additional_parameters
@@ -37,7 +36,6 @@ OCF_RESKEY_binary_default="nova-novncproxy"
 OCF_RESKEY_config_default="/etc/nova/nova.conf"
 OCF_RESKEY_user_default="nova"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
-OCF_RESKEY_monitor_binary_default="netstat"
 OCF_RESKEY_console_port_default="6080"
 OCF_RESKEY_web_default="/usr/share/novnc/"
 
@@ -45,7 +43,6 @@ OCF_RESKEY_web_default="/usr/share/novnc/"
 : ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
 : ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
 : ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
-: ${OCF_RESKEY_monitor_binary=${OCF_RESKEY_monitor_binary_default}}
 : ${OCF_RESKEY_console_port=${OCF_RESKEY_console_port_default}}
 : ${OCF_RESKEY_web=${OCF_RESKEY_web_default}}
 
@@ -108,7 +105,7 @@ User running OpenStack Nova VNC Console (nova-novncproxy)
 
 <parameter name="console_port" unique="0" required="0">
 <longdesc lang="en">
-VNC console type running: nova-novnc or nova-xvpvncproxy
+VNC console type running: nova-novnc
 </longdesc>
 <shortdesc lang="en">OpenStack Nova VNC Console (nova-novncproxy) console type</shortdesc>
 <content type="integer" default="${OCF_RESKEY_console_port_default}" />
@@ -159,6 +156,7 @@ nova_vnc_console_validate() {
     local rc
 
     check_binary $OCF_RESKEY_binary
+    check_binary netstat
 
     # A config file on shared storage that is not available
     # during probes is OK.
@@ -203,7 +201,7 @@ nova_vnc_console_status() {
 
 nova_vnc_console_monitor() {
     local rc
-    local token
+    local vnc_list_check
 
     nova_vnc_console_status
     rc=$?
@@ -215,11 +213,7 @@ nova_vnc_console_monitor() {
 
     # Check whether we are supposed to monitor by logging into nova-novncproxy
     # and do it if that's the case.
-    if ! check_binary $OCF_RESKEY_monitor_binary; then 
-		ocf_log warn "$OCF_RESKEY_monitor_binary missing, can not monitor!" 
-	else
-		VNC_LIST_CHECK=`$OCF_RESKEY_monitor_binary -a | grep -s "$OCF_RESKEY_console_port" | grep -qs "LISTEN"`
-    fi
+	vnc_list_check=`netstat -a | grep -s "$OCF_RESKEY_console_port" | grep -qs "LISTEN"`
     rc=$?
     if [ $rc -ne 0 ]; then
         ocf_log err "Nova VNC Console doesn't seem to listen on his default port: $rc"
