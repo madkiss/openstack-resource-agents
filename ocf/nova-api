@@ -279,7 +279,6 @@ nova_api_start() {
 
     # Spin waiting for the server to come up.
     # Let the CRM/LRM time us out if required
-	sleep 1
     while true; do
     nova_api_monitor
     rc=$?

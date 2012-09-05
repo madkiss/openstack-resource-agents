@@ -270,7 +270,6 @@ nova_volume_start() {
 
     # Spin waiting for the server to come up.
     # Let the CRM/LRM time us out if required
-    sleep 1
     while true; do
     nova_volume_monitor
     rc=$?
