@@ -19,7 +19,6 @@
 #   OCF_RESKEY_config
 #   OCF_RESKEY_user
 #   OCF_RESKEY_pid
-#   OCF_RESKEY_monitor_binary
 #   OCF_RESKEY_database_server_port
 #   OCF_RESKEY_amqp_server_port
 #   OCF_RESKEY_zeromq
@@ -38,7 +37,6 @@ OCF_RESKEY_binary_default="nova-consoleauth"
 OCF_RESKEY_config_default="/etc/nova/nova.conf"
 OCF_RESKEY_user_default="nova"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
-OCF_RESKEY_monitor_binary_default="netstat"
 OCF_RESKEY_database_server_port_default="3306"
 OCF_RESKEY_amqp_server_port_default="5672"
 OCF_RESKEY_zeromq_default="false"
@@ -47,7 +45,6 @@ OCF_RESKEY_zeromq_default="false"
 : ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
 : ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
 : ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
-: ${OCF_RESKEY_monitor_binary=${OCF_RESKEY_monitor_binary_default}}
 : ${OCF_RESKEY_database_server_port=${OCF_RESKEY_database_server_port_default}}
 : ${OCF_RESKEY_amqp_server_port=${OCF_RESKEY_amqp_server_port_default}}
 : ${OCF_RESKEY_zeromq=${OCF_RESKEY_zeromq_default}}
@@ -166,10 +163,33 @@ END
 #######################################################################
 # Functions invoked by resource manager actions
 
+nova_consoleauth_check_port() {
+# This function has been taken from the squid RA and improved a bit
+# The length of the integer must be 4
+# Examples of valid port: "1080", "0080"
+# Examples of invalid port: "1080bad", "0", "0000", ""
+
+    local int
+    local cnt
+    
+    int="$1"
+    cnt=${#int}
+    echo $int |egrep -qx '[0-9]+(:[0-9]+)?(,[0-9]+(:[0-9]+)?)*'
+
+    if [ $? -ne 0 ] || [ $cnt -ne 4 ]; then
+        ocf_log err "Invalid port number: $1"
+        exit $OCF_ERR_CONFIGURED
+    fi
+}
+
 nova_consoleauth_validate() {
     local rc
 
     check_binary $OCF_RESKEY_binary
+    check_binary netstat
+    
+    nova_consoleauth_check_port $OCF_RESKEY_database_server_port
+    nova_consoleauth_check_port $OCF_RESKEY_amqp_server_port
 
     # A config file on shared storage that is not available
     # during probes is OK.
@@ -217,6 +237,8 @@ nova_consoleauth_monitor() {
     local token
     local rc_database
     local rc_amqp
+    local console_db_check
+    local console_amqp_check
     
     nova_consoleauth_status
     rc=$?
@@ -226,34 +248,30 @@ nova_consoleauth_monitor() {
         return $rc
     fi
 
-    # Check whether we are supposed to monitor by logging into nova-consoleauth
-    # and do it if that's the case.
-    if ! check_binary $OCF_RESKEY_monitor_binary; then
-        ocf_log warn "$OCF_RESKEY_monitor_binary missing, can not monitor!"
-    else
-		if ocf_is_true "$OCF_RESKEY_zeromq"; then
-			PID=`cat $OCF_RESKEY_pid`
-			CONSOLE_DATABASE_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$PID" | grep -qs "ESTABLISHED"`
-			rc_database=$?
-			if [ $rc_database -ne 0 ]; then
-			    ocf_log err "Nova ConsoleAuth is not connected to the database server: $rc_database"
-			    return $OCF_NOT_RUNNING
-			fi
-		else
-            PID=`cat $OCF_RESKEY_pid`
-            # check the connections according to the PID
-            CONSOLE_DATABASE_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$PID" | grep -qs "ESTABLISHED"`
-            rc_database=$?
-            CONSOLE_AMQP_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_amqp_server_port" | egrep -s "$PID" | grep -qs "ESTABLISHED"`
-            rc_amqp=$?
-		    if [ $rc_amqp -ne 0 ] || [ $rc_database -ne 0 ]; then
-			    ocf_log err "Nova ConsoleAuth is not connected to the AMQP server and/or the database server: AMQP connection test returned $rc_amqp and database connection test returned $rc_database"
-			    return $OCF_NOT_RUNNING
-			fi
+    # Check the connections according to the PID.
+    # We are sure to hit the scheduler process and not other nova process with the same connection behavior (for example nova-scheduler)
+	if ocf_is_true "$OCF_RESKEY_zeromq"; then
+		pid=`cat $OCF_RESKEY_pid`
+		console_db_check=`netstat -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
+		rc_db=$?
+		if [ $rc_db -ne 0 ]; then
+		    ocf_log err "Nova Console Auth is not connected to the database server: $rc_db"
+		    return $OCF_NOT_RUNNING
 		fi
-    fi
-
-    ocf_log debug "OpenStack Nova ConsoleAuth (nova-consoleauth) monitor succeeded"
+	else
+        pid=`cat $OCF_RESKEY_pid`
+        # check the connections according to the PID
+        console_db_check=`netstat -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
+        rc_db=$?
+        console_amqp_check=`netstat -punt | grep -s "$OCF_RESKEY_amqp_server_port" | egrep -s "$pid" | grep -qs "ESTABLISHED"`
+        rc_amqp=$?
+	    if [ $rc_amqp -ne 0 ] || [ $rc_db -ne 0 ]; then
+		    ocf_log err "Nova Console Auth is not connected to the AMQP server and/or the database server: AMQP connection test returned $rc_amqp and database connection test returned $rc_db"
+		    return $OCF_NOT_RUNNING
+		fi
+	fi
+    
+    ocf_log debug "OpenStack Nova Console Auth (nova-consoleauth) monitor succeeded"
     return $OCF_SUCCESS
 }
 
