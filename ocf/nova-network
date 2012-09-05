@@ -17,11 +17,9 @@
 #
 # OCF instance parameters:
 #   OCF_RESKEY_binary
-#   OCF_RESKEY_dhcp_binary
 #   OCF_RESKEY_config
 #   OCF_RESKEY_user
 #   OCF_RESKEY_pid
-#   OCF_RESKEY_monitor_binary
 #   OCF_RESKEY_database_server_port
 #   OCF_RESKEY_amqp_server_port
 #   OCF_RESKEY_zeromq
@@ -37,21 +35,17 @@
 # Fill in some defaults if no values are specified
 
 OCF_RESKEY_binary_default="nova-network"
-OCF_RESKEY_dhcp_binary_default="dnsmasq"
 OCF_RESKEY_config_default="/etc/nova/nova.conf"
 OCF_RESKEY_user_default="nova"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
-OCF_RESKEY_monitor_binary_default="netstat"
 OCF_RESKEY_database_server_port_default="3306"
 OCF_RESKEY_amqp_server_port_default="5672"
 OCF_RESKEY_zeromq_default="false"
 
 : ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
-: ${OCF_RESKEY_dhcp_binary=${OCF_RESKEY_dhcp_binary_default}}
 : ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
 : ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
 : ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
-: ${OCF_RESKEY_monitor_binary=${OCF_RESKEY_monitor_binary_default}}
 : ${OCF_RESKEY_database_server_port=${OCF_RESKEY_database_server_port_default}}
 : ${OCF_RESKEY_amqp_server_port=${OCF_RESKEY_amqp_server_port_default}}
 : ${OCF_RESKEY_zeromq=${OCF_RESKEY_zeromq_default}}
@@ -174,6 +168,8 @@ nova_network_validate() {
     local rc
 
     check_binary $OCF_RESKEY_binary
+    check_binary netstat
+    check_binary dsmask
 
     # A config file on shared storage that is not available
     # during probes is OK.
@@ -218,9 +214,12 @@ nova_network_status() {
 
 nova_network_monitor() {
     local rc
-    local token
-    local rc_database
+    local pid
+    local rc_db
     local rc_amqp
+    local network_db_check
+    local network_amqp_check
+    
 
     nova_network_status
     rc=$?
@@ -230,32 +229,28 @@ nova_network_monitor() {
         return $rc
     fi
 
-    # Check whether we are supposed to monitor by logging into nova-network
-    # and do it if that's the case.
-    if ! check_binary $OCF_RESKEY_monitor_binary; then
-        ocf_log warn "$OCF_RESKEY_monitor_binary missing, can not monitor!"
-    else
+    # Check the connections according to the PID.
+    # We are sure to hit the scheduler process and not other nova process with the same connection behavior (for example nova-cert)
 	if ocf_is_true "$OCF_RESKEY_zeromq"; then
-	    PID=`cat $OCF_RESKEY_pid`
-	    SCHEDULER_DATABASE_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$PID" | grep -qs "ESTABLISHED"`
-	    rc_database=$?
-	    if [ $rc_database -ne 0 ]; then
-	        ocf_log err "Nova Network is not connected to the database server: $rc_database"
+	    pid=`cat $OCF_RESKEY_pid`
+	    network_db_check=`netstat -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
+	    rc_db=$?
+	    if [ $rc_db -ne 0 ]; then
+	        ocf_log err "Nova Network is not connected to the database server: $rc_db"
 	        return $OCF_NOT_RUNNING
 	    fi
 	else
-            PID=`cat $OCF_RESKEY_pid`
-            # check the connections according to the PID
-            SCHEDULER_DATABASE_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$PID" | grep -qs "ESTABLISHED"`
-            rc_database=$?
-            SCHEDULER_AMQP_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_amqp_server_port" | grep -s "$PID" | grep -qs "ESTABLISHED"`
-            rc_amqp=$?
-	    if [ $rc_amqp -ne 0 ] || [ $rc_database -ne 0 ]; then
-	        ocf_log err "Nova Network is not connected to the AMQP server and/or the database server: AMQP connection test returned $rc_amqp and database connection test returned $rc_database"
+        pid=`cat $OCF_RESKEY_pid`
+        # check the connections according to the PID
+        network_db_check=`netstat -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
+        rc_db=$?
+        network_amqp_check=`netstat -punt | grep -s "$OCF_RESKEY_amqp_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
+        rc_amqp=$?
+	    if [ $rc_amqp -ne 0 ] || [ $rc_db -ne 0 ]; then
+	        ocf_log err "Nova Network is not connected to the AMQP server and/or the database server: AMQP connection test returned $rc_amqp and database connection test returned $rc_db"
 	        return $OCF_NOT_RUNNING
 	    fi
 	fi
-    fi
 
     ocf_log debug "OpenStack Nova Network (nova-network) monitor succeeded"
     return $OCF_SUCCESS
@@ -278,7 +273,6 @@ nova_network_start() {
 
     # Spin waiting for the server to come up.
     # Let the CRM/LRM time us out if required
-	sleep 1
     while true; do
     nova_network_monitor
     rc=$?
@@ -308,7 +302,7 @@ nova_network_stop() {
     # Try SIGTERM
     pid=`cat $OCF_RESKEY_pid`
     ocf_run kill -s TERM $pid
-    pkill $OCF_RESKEY_dhcp_binary
+    pkill dnsmask
     rc=$?
     if [ $rc -ne 0 ]; then
         ocf_log err "OpenStack Nova Network (nova-network) couldn't be stopped"
