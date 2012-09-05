@@ -19,7 +19,6 @@
 #   OCF_RESKEY_config
 #   OCF_RESKEY_user
 #   OCF_RESKEY_pid
-#   OCF_RESKEY_monitor_binary
 #   OCF_RESKEY_database_server_port
 #   OCF_RESKEY_amqp_server_port
 #   OCF_RESKEY_zeromq
@@ -38,7 +37,6 @@ OCF_RESKEY_binary_default="nova-volume"
 OCF_RESKEY_config_default="/etc/nova/nova.conf"
 OCF_RESKEY_user_default="nova"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
-OCF_RESKEY_monitor_binary_default="netstat"
 OCF_RESKEY_database_server_port_default="3306"
 OCF_RESKEY_amqp_server_port_default="5672"
 OCF_RESKEY_zeromq_default="false"
@@ -47,7 +45,6 @@ OCF_RESKEY_zeromq_default="false"
 : ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
 : ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
 : ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
-: ${OCF_RESKEY_monitor_binary=${OCF_RESKEY_monitor_binary_default}}
 : ${OCF_RESKEY_database_server_port=${OCF_RESKEY_database_server_port_default}}
 : ${OCF_RESKEY_amqp_server_port=${OCF_RESKEY_amqp_server_port_default}}
 : ${OCF_RESKEY_zeromq=${OCF_RESKEY_zeromq_default}}
@@ -60,7 +57,7 @@ usage() {
 
         $0 manages an OpenStack Nova Volume (nova-volume) process as an HA resource
 
-        The 'start' operation starts the nvolume service.
+        The 'start' operation starts the volume service.
         The 'stop' operation stops the volume service.
         The 'validate-all' operation reports whether the parameters are valid
         The 'meta-data' operation reports this RA's meta-data information
@@ -170,7 +167,8 @@ nova_volume_validate() {
     local rc
 
     check_binary $OCF_RESKEY_binary
-
+    check_binary netstat
+    
     # A config file on shared storage that is not available
     # during probes is OK.
     if [ ! -f $OCF_RESKEY_config ]; then
@@ -214,9 +212,11 @@ nova_volume_status() {
 
 nova_volume_monitor() {
     local rc
-    local token
-    local rc_database
+    local pid
+    local rc_db
     local rc_amqp
+    local volume_db_check
+    local volume_amqp_check
 
     nova_volume_status
     rc=$?
@@ -228,28 +228,24 @@ nova_volume_monitor() {
 
     # Check whether we are supposed to monitor by logging into nova-scheduler
     # and do it if that's the case.
-    if ! check_binary $OCF_RESKEY_monitor_binary; then
-        ocf_log warn "$OCF_RESKEY_monitor_binary missing, can not monitor!"
+    if ocf_is_true "$OCF_RESKEY_zeromq"; then
+        pid=`cat $OCF_RESKEY_pid`
+        volume_db_check=`netstat -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
+        rc_db=$?
+        if [ $rc_db -ne 0 ]; then
+            ocf_log err "Nova Volume is not connected to the database server: $rc_db"
+            return $OCF_NOT_RUNNING
+        fi
     else
-        if ocf_is_true "$OCF_RESKEY_zeromq"; then
-            PID=`cat $OCF_RESKEY_pid`
-            VOLUME_DATABASE_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$PID" | grep -qs "ESTABLISHED"`
-            rc_database=$?
-            if [ $rc_database -ne 0 ]; then
-                ocf_log err "Nova Volume is not connected to the database server: $rc_database"
-                return $OCF_NOT_RUNNING
-            fi
-        else
-            PID=`cat $OCF_RESKEY_pid`
-            # check the connections according to the PID
-            VOLUME_DATABASE_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$PID" | grep -qs "ESTABLISHED"`
-            rc_database=$?
-            VOLUME_AMQP_CO_CHECK=`"$OCF_RESKEY_monitor_binary" -punt | grep -s "$OCF_RESKEY_amqp_server_port" | grep -s "$PID" | grep -qs "ESTABLISHED"`
-            rc_amqp=$?
-            if [ $rc_amqp -ne 0 ] || [ $rc_database -ne 0 ]; then
-                ocf_log err "Nova Volume is not connected to the AMQP server and/or the database server: AMQP connection test returned $rc_amqp and database connection test returned $rc_database"
-                return $OCF_NOT_RUNNING
-            fi
+        pid=`cat $OCF_RESKEY_pid`
+        # check the connections according to the PID
+        volume_db_check=`netstat -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
+        rc_db=$?
+        volume_amqp_check=`netstat -punt | grep -s "$OCF_RESKEY_amqp_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
+        rc_amqp=$?
+        if [ $rc_amqp -ne 0 ] || [ $rc_db -ne 0 ]; then
+            ocf_log err "Nova Volume is not connected to the AMQP server and/or the database server: AMQP connection test returned $rc_amqp and database connection test returned $rc_db"
+            return $OCF_NOT_RUNNING
         fi
     fi
     
