@@ -169,7 +169,6 @@ nova_network_validate() {
 
     check_binary $OCF_RESKEY_binary
     check_binary netstat
-    check_binary dsmask
 
     # A config file on shared storage that is not available
     # during probes is OK.
@@ -301,8 +300,8 @@ nova_network_stop() {
 
     # Try SIGTERM
     pid=`cat $OCF_RESKEY_pid`
+    pid="$pid `ps ax | grep -v grep | grep 'dnsmasq' | cut -c1-5`"
     ocf_run kill -s TERM $pid
-    pkill dnsmask
     rc=$?
     if [ $rc -ne 0 ]; then
         ocf_log err "OpenStack Nova Network (nova-network) couldn't be stopped"
