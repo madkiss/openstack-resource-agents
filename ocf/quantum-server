@@ -39,13 +39,7 @@ OCF_RESKEY_binary_default="quantum-server"
 OCF_RESKEY_config_default="/etc/quantum/quantum.conf"
 OCF_RESKEY_user_default="quantum"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
-
-# Quantum V1 (Essex)
 OCF_RESKEY_url_default="http://127.0.0.1:9696"
-
-# Quantum V2 (Folsom)
-# OCF_RESKEY_url_default="http://127.0.0.1:9696/v2.0/"
-
 OCF_RESKEY_keystone_url_default="http://127.0.0.1:5000/v2.0/tokens"
 
 : ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
