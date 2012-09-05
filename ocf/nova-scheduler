@@ -234,9 +234,9 @@ nova_scheduler_status() {
 
 nova_scheduler_monitor() {
     local rc
-    local rc_database
-    local rc_amqp
     local pid
+    local rc_db
+    local rc_amqp
     local scheduler_db_check
     local scheduler_amqp_check
 
@@ -253,19 +253,19 @@ nova_scheduler_monitor() {
     if ocf_is_true "$OCF_RESKEY_zeromq"; then
 	    pid=`cat $OCF_RESKEY_pid`
 	    scheduler_db_check=`netstat -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
-	    rc_database=$?
-	    if [ $rc_database -ne 0 ]; then
-	        ocf_log err "Nova Scheduler is not connected to the database server: $rc_database"
+	    rc_db=$?
+	    if [ $rc_db -ne 0 ]; then
+	        ocf_log err "Nova Scheduler is not connected to the database server: $rc_db"
 	        return $OCF_NOT_RUNNING
 	    fi
 	else
         pid=`cat $OCF_RESKEY_pid`
         scheduler_db_check=`netstat -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
-        rc_database=$?
+        rc_db=$?
         scheduler_amqp_check=`netstat -punt | grep -s "$OCF_RESKEY_amqp_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
         rc_amqp=$?
-	    if [ $rc_amqp -ne 0 ] || [ $rc_database -ne 0 ]; then
-	        ocf_log err "Nova Scheduler is not connected to the AMQP server and/or the database server: AMQP connection test returned $rc_amqp and database connection test returned $rc_database"
+	    if [ $rc_amqp -ne 0 ] || [ $rc_db -ne 0 ]; then
+	        ocf_log err "Nova Scheduler is not connected to the AMQP server and/or the database server: AMQP connection test returned $rc_amqp and database connection test returned $rc_db"
 	        return $OCF_NOT_RUNNING
 	    fi
 	fi
