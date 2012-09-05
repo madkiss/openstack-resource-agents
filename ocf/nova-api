@@ -233,6 +233,7 @@ nova_api_status() {
 nova_api_monitor() {
     local rc
     local token
+    local http_code
 
     nova_api_status
     rc=$?
@@ -245,14 +246,14 @@ nova_api_monitor() {
     # Check detailed information about this specific version of the API.
     if [ -n "$OCF_RESKEY_os_username" ] && [ -n "$OCF_RESKEY_os_password" ] \
     && [ -n "$OCF_RESKEY_os_tenant_name" ] && [ -n "$OCF_RESKEY_keystone_url" ]; then
-        TOKEN=`curl -s -d  "{\"auth\":{\"passwordCredentials\": {\"username\": \"$OCF_RESKEY_os_username\", \
+        token=`curl -s -d  "{\"auth\":{\"passwordCredentials\": {\"username\": \"$OCF_RESKEY_os_username\", \
           \"password\": \"$OCF_RESKEY_os_password\"}, \"tenantName\": \"$OCF_RESKEY_os_tenant_name\"}}" \
           -H "Content-type: application/json" $OCF_RESKEY_keystone_url | tr ',' '\n' | grep '"id":' \
           | cut -d'"' -f4 | head --lines 1` 
-        HTTP_CODE=`curl --write-out %{http_code} --output /dev/null -sH "X-Auth-Token: $TOKEN" $OCF_RESKEY_url`
+        http_code=`curl --write-out %{http_code} --output /dev/null -sH "X-Auth-Token: $token" $OCF_RESKEY_url`
         rc=$?
-        if [ $rc -ne 0 ] || [ $HTTP_CODE -ne 200 ]; then
-            ocf_log err "Failed to connect to the OpenStack Nova API (nova-api): $rc and $HTTP_CODE"
+        if [ $rc -ne 0 ] || [ $http_code -ne 200 ]; then
+            ocf_log err "Failed to connect to the OpenStack Nova API (nova-api): $rc and $http_code"
             return $OCF_NOT_RUNNING
         fi
     fi
