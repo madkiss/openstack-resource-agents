@@ -20,7 +20,7 @@
 #   OCF_RESKEY_os_username
 #   OCF_RESKEY_os_password
 #   OCF_RESKEY_os_tenant_name
-#   OCF_RESKEY_keystone_url
+#   OCF_RESKEY_keystone_get_token_url
 #   OCF_RESKEY_url
 #   OCF_RESKEY_user
 #   OCF_RESKEY_pid
