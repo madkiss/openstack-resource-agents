@@ -22,7 +22,7 @@
 #   OCF_RESKEY_os_username
 #   OCF_RESKEY_os_password
 #   OCF_RESKEY_os_tenant_name
-#   OCF_RESKEY_keystone_url
+#   OCF_RESKEY_keystone_get_token_url
 #   OCF_RESKEY_additional_parameters
 #######################################################################
 # Initialization:
@@ -39,14 +39,14 @@ OCF_RESKEY_config_default="/etc/nova/nova.conf"
 OCF_RESKEY_user_default="nova"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
 OCF_RESKEY_url_default="http://127.0.0.1:8774/v1.1/"
-OCF_RESKEY_keystone_url_default="http://127.0.0.1:5000/v2.0/tokens"
+OCF_RESKEY_keystone_get_token_url_default="http://127.0.0.1:5000/v2.0/tokens"
 
 : ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
 : ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
 : ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
 : ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
 : ${OCF_RESKEY_url=${OCF_RESKEY_url_default}}
-: ${OCF_RESKEY_keystone_url=${OCF_RESKEY_keystone_url_default}}
+: ${OCF_RESKEY_keystone_get_token_url=${OCF_RESKEY_keystone_get_token_url_default}}
 
 #######################################################################
 
@@ -121,13 +121,13 @@ The default URL to use for monitoring this instance (nova-api) via curl. Importa
 <content type="string" default="${OCF_RESKEY_url_default}" />
 </parameter>
 
-<parameter name="keystone_url" unique="0" required="0">
+<parameter name="keystone_get_token_url" unique="0" required="0">
 <longdesc lang="en">
 The default URL to use to acquire a Nova API (nova-api) token for monitoring this instance
 of OpenStack Nova API (nova-api)
 </longdesc>
 <shortdesc lang="en">OpenStack Nova API (nova-api) url</shortdesc>
-<content type="string" default="${OCF_RESKEY_keystone_url_default}" />
+<content type="string" default="${OCF_RESKEY_keystone_get_token_url_default}" />
 </parameter>
 
 <parameter name="os_username" unique="0" required="0">
@@ -245,10 +245,10 @@ nova_api_monitor() {
 
     # Check detailed information about this specific version of the API.
     if [ -n "$OCF_RESKEY_os_username" ] && [ -n "$OCF_RESKEY_os_password" ] \
-    && [ -n "$OCF_RESKEY_os_tenant_name" ] && [ -n "$OCF_RESKEY_keystone_url" ]; then
+    && [ -n "$OCF_RESKEY_os_tenant_name" ] && [ -n "$OCF_RESKEY_keystone_get_token_url" ]; then
         token=`curl -s -d  "{\"auth\":{\"passwordCredentials\": {\"username\": \"$OCF_RESKEY_os_username\", \
           \"password\": \"$OCF_RESKEY_os_password\"}, \"tenantName\": \"$OCF_RESKEY_os_tenant_name\"}}" \
-          -H "Content-type: application/json" $OCF_RESKEY_keystone_url | tr ',' '\n' | grep '"id":' \
+          -H "Content-type: application/json" $OCF_RESKEY_keystone_get_token_url | tr ',' '\n' | grep '"id":' \
           | cut -d'"' -f4 | head --lines 1` 
         http_code=`curl --write-out %{http_code} --output /dev/null -sH "X-Auth-Token: $token" $OCF_RESKEY_url`
         rc=$?
