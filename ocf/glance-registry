@@ -40,14 +40,14 @@ OCF_RESKEY_config_default="/etc/glance/glance-registry.conf"
 OCF_RESKEY_user_default="glance"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
 OCF_RESKEY_url_default="http://127.0.0.1:9191/images"
-OCF_RESKEY_keystone_url_default="http://127.0.0.1:5000/v2.0/tokens"
+OCF_RESKEY_keystone_get_token_url_default="http://127.0.0.1:5000/v2.0/tokens"
 
 : ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
 : ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
 : ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
 : ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
 : ${OCF_RESKEY_url=${OCF_RESKEY_url_default}}
-: ${OCF_RESKEY_keystone_url=${OCF_RESKEY_keystone_url_default}}
+: ${OCF_RESKEY_keystone_get_token_url=${OCF_RESKEY_keystone_get_token_url_default}}
 
 #######################################################################
 
@@ -122,13 +122,13 @@ The default URL to use for monitoring this instance (glance-registry) via curl. 
 <content type="string" default="${OCF_RESKEY_url_default}" />
 </parameter>
 
-<parameter name="keystone_url" unique="0" required="0">
+<parameter name="keystone_get_token_url" unique="0" required="0">
 <longdesc lang="en">
 The default URL to use to acquire a ImageService (glance-registry) token for monitoring this instance
 of OpenStack ImageService (glance-registry)
 </longdesc>
 <shortdesc lang="en">OpenStack ImageService (glance-registry) url</shortdesc>
-<content type="string" default="${OCF_RESKEY_keystone_url_default}" />
+<content type="string" default="${OCF_RESKEY_keystone_get_token_url_default}" />
 </parameter>
 
 <parameter name="os_username" unique="0" required="0">
@@ -234,6 +234,7 @@ glance_registry_status() {
 glance_registry_monitor() {
     local rc
     local token
+    local http_code
 
     glance_registry_status
     rc=$?
@@ -246,15 +247,15 @@ glance_registry_monitor() {
     # Check whether we are supposed to monitor by logging into glance-registry
     # and do it if that's the case.
     if [ -n "$OCF_RESKEY_os_username" ] && [ -n "$OCF_RESKEY_os_password" ] \
-    && [ -n "$OCF_RESKEY_os_tenant_name" ] && [ -n "$OCF_RESKEY_keystone_url" ]; then
-        TOKEN=`curl -s -d  "{\"auth\":{\"passwordCredentials\": {\"username\": \"$OCF_RESKEY_os_username\", \
+    && [ -n "$OCF_RESKEY_os_tenant_name" ] && [ -n "$OCF_RESKEY_keystone_get_token_url" ]; then
+        token=`curl -s -d  "{\"auth\":{\"passwordCredentials\": {\"username\": \"$OCF_RESKEY_os_username\", \
           \"password\": \"$OCF_RESKEY_os_password\"}, \"tenantName\": \"$OCF_RESKEY_os_tenant_name\"}}" \
-          -H "Content-type: application/json" $OCF_RESKEY_keystone_url | tr ',' '\n' | grep '"id":' \
+          -H "Content-type: application/json" $OCF_RESKEY_keystone_get_token_url | tr ',' '\n' | grep '"id":' \
           | cut -d'"' -f4 | head --lines 1` 
-        HTTP_CODE=`curl --write-out %{http_code} --output /dev/null -sH "X-Auth-Token: $TOKEN" $OCF_RESKEY_url`
+        http_code=`curl --write-out %{http_code} --output /dev/null -sH "X-Auth-Token: $token" $OCF_RESKEY_url`
         rc=$?
-        if [ $rc -ne 0 ] || [ $HTTP_CODE -ne 200 ]; then
-            ocf_log err "Failed to connect to the OpenStack ImageService (glance-registry): $rc and $HTTP_CODE"
+        if [ $rc -ne 0 ] || [ $http_code -ne 200 ]; then
+            ocf_log err "Failed to connect to the OpenStack ImageService (glance-registry): $rc and $http_code"
             return $OCF_NOT_RUNNING
         fi
     fi
