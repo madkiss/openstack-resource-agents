@@ -219,7 +219,6 @@ nova_network_monitor() {
     local network_db_check
     local network_amqp_check
     
-
     nova_network_status
     rc=$?
 
