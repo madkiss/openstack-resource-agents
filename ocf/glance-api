@@ -235,8 +235,7 @@ glance_api_monitor() {
         return $rc
     fi
 
-    # Check whether we are supposed to monitor by logging into glance-api
-    # and do it if that's the case.
+    # Monitor the RA by retrieving the image list
     if [ -n "$OCF_RESKEY_os_username" ] && [ -n "$OCF_RESKEY_os_password" ] \
     && [ -n "$OCF_RESKEY_os_tenant_name" ] && [ -n "$OCF_RESKEY_os_auth_url" ]; then
 	    ocf_run -q $OCF_RESKEY_client_binary \
