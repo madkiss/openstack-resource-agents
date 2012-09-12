@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 #
-# OpenStack Nova Volume (nova-volume)
+# OpenStack Nova Volume (nova-volume) (replaced by Cinder in Folsom)
 #
 # Description:  Manages an OpenStack Nova Volume (nova-volume) process as an HA resource
 #
