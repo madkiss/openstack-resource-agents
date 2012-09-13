@@ -239,10 +239,10 @@ glance_api_monitor() {
     if [ -n "$OCF_RESKEY_os_username" ] && [ -n "$OCF_RESKEY_os_password" ] \
     && [ -n "$OCF_RESKEY_os_tenant_name" ] && [ -n "$OCF_RESKEY_os_auth_url" ]; then
 	    ocf_run -q $OCF_RESKEY_client_binary \
-        --os_username "$OCF_RESKEY_os_username" \
-        --os_password "$OCF_RESKEY_os_password" \
-        --os_tenant_name "$OCF_RESKEY_os_tenant_name" \
-        --os_auth_url "$OCF_RESKEY_os_auth_url" \
+        --os-username "$OCF_RESKEY_os_username" \
+        --os-password "$OCF_RESKEY_os_password" \
+        --os-tenant-name "$OCF_RESKEY_os_tenant_name" \
+        --os-auth-url "$OCF_RESKEY_os_auth_url" \
         index > /dev/null 2>&1
         rc=$?
         if [ $rc -ne 0 ]; then
