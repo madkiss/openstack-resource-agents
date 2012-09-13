@@ -6,6 +6,7 @@
 # Description:  Manages an OpenStack Keystone process as an HA resource
 #
 # Authors:      Martin Gerhard Loschwitz
+#		Updated by Emilien Macchi for Folsom release
 #
 # Support:      openstack@lists.launchpad.net
 # License:      Apache Software License (ASL) 2.0
@@ -241,10 +242,10 @@ keystone_monitor() {
     && [ -n "$OCF_RESKEY_os_password" ] && [ -n "$OCF_RESKEY_os_tenant_name" ] \
     && [ -n "$OCF_RESKEY_os_auth_url" ]; then
         ocf_run -q $OCF_RESKEY_client_binary \
-        --username "$OCF_RESKEY_os_username" \
-        --password "$OCF_RESKEY_os_password" \
-        --tenant_name "$OCF_RESKEY_os_tenant_name" \
-        --auth_url "$OCF_RESKEY_os_auth_url" \
+        --os-username "$OCF_RESKEY_os_username" \
+        --os-password "$OCF_RESKEY_os_password" \
+        --os-tenant-name "$OCF_RESKEY_os_tenant_name" \
+        --os-auth-url "$OCF_RESKEY_os_auth_url" \
         user-list > /dev/null 2>&1
         rc=$?
         if [ $rc -ne 0 ]; then
