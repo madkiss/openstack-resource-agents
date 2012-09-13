@@ -38,7 +38,7 @@ OCF_RESKEY_binary_default="nova-api"
 OCF_RESKEY_config_default="/etc/nova/nova.conf"
 OCF_RESKEY_user_default="nova"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
-OCF_RESKEY_url_default="http://127.0.0.1:8774/v1.1/"
+OCF_RESKEY_url_default="http://127.0.0.1:8774/v2/"
 OCF_RESKEY_keystone_get_token_url_default="http://127.0.0.1:5000/v2.0/tokens"
 
 : ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
@@ -274,7 +274,7 @@ nova_api_start() {
 
     # run the actual nova-api daemon. Don't use ocf_run as we're sending the tool's output
     # straight to /dev/null anyway and using ocf_run would break stdout-redirection here.
-    su ${OCF_RESKEY_user} -s /bin/sh -c "${OCF_RESKEY_binary} --flagfile=$OCF_RESKEY_config \
+    su ${OCF_RESKEY_user} -s /bin/sh -c "${OCF_RESKEY_binary} --config-file=$OCF_RESKEY_config \
        $OCF_RESKEY_additional_parameters"' >> /dev/null 2>&1 & echo $!' > $OCF_RESKEY_pid
 
     # Spin waiting for the server to come up.
