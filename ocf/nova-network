@@ -5,7 +5,7 @@
 #
 # Description:  Manages an OpenStack Network Service (nova-network) process as an HA resource
 #
-# Authors: Emilien Macchi
+# Authors: Sebastien Han & Emilien Macchi
 # Mainly inspired by the Nova Scheduler resource agent written by Sebastien Han : http://goo.gl/s8hOU
 # Which are also inspired by the resource agents written by Martin Gerhard Loschwitz from Hastexo: http://goo.gl/whLpr
 #
