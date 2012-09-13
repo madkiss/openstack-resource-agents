@@ -6,7 +6,6 @@
 # Description:  Manages an OpenStack Keystone process as an HA resource
 #
 # Authors:      Martin Gerhard Loschwitz
-#		Updated by Emilien Macchi for Folsom release
 #
 # Support:      openstack@lists.launchpad.net
 # License:      Apache Software License (ASL) 2.0
