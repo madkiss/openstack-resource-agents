@@ -18,6 +18,7 @@
 # OCF instance parameters:
 #   OCF_RESKEY_binary
 #   OCF_RESKEY_config
+#   OCF_RESKEY_plugin_config
 #   OCF_RESKEY_user
 #   OCF_RESKEY_pid
 #   OCF_RESKEY_os_username
@@ -37,6 +38,7 @@
 
 OCF_RESKEY_binary_default="quantum-server"
 OCF_RESKEY_config_default="/etc/quantum/quantum.conf"
+OCF_RESKEY_plugin_config_default="/etc/quantum/plugins/openvswitch/ovs_quantum_plugin.ini"
 OCF_RESKEY_user_default="quantum"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
 OCF_RESKEY_url_default="http://127.0.0.1:9696"
@@ -44,6 +46,7 @@ OCF_RESKEY_keystone_get_token_url_default="http://127.0.0.1:5000/v2.0/tokens"
 
 : ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
 : ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
+: ${OCF_RESKEY_plugin_config=${OCF_RESKEY_plugin_config_default}}
 : ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
 : ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
 : ${OCF_RESKEY_url=${OCF_RESKEY_url_default}}
@@ -96,6 +99,14 @@ Location of the OpenStack Quantum Server (quantum-server) configuration file
 </longdesc>
 <shortdesc lang="en">OpenStack Quantum Server (quantum-server) config file</shortdesc>
 <content type="string" default="${OCF_RESKEY_config_default}" />
+</parameter>
+
+<parameter name="plugin config" unique="0" required="0">
+<longdesc lang="en">
+Location of the OpenStack Default Plugin (Open-vSwitch) configuration file
+</longdesc>
+<shortdesc lang="en">OpenStack OVS (quantum-ovs) config file</shortdesc>
+<content type="string" default="${OCF_RESKEY_plugin_config_default}" />
 </parameter>
 
 <parameter name="user" unique="0" required="0">
@@ -273,10 +284,12 @@ quantum_server_start() {
         return $OCF_SUCCESS
     fi
 
-    # run the actual quantum-server daemon. Don't use ocf_run as we're sending the tool's output
+    # run the actual quantum-server daemon with correct configurations files (server + plugin)
+    # Don't use ocf_run as we're sending the tool's output
     # straight to /dev/null anyway and using ocf_run would break stdout-redirection here.
     su ${OCF_RESKEY_user} -s /bin/sh -c "${OCF_RESKEY_binary} --config-file=$OCF_RESKEY_config \
-       $OCF_RESKEY_additional_parameters"' >> /dev/null 2>&1 & echo $!' > $OCF_RESKEY_pid
+       	--config-file=$OCF_RESKEY_plugin_config --logfile=/var/log/quantum/server.log $OCF_RESKEY_additional_parameters"' >> \
+	/dev/null 2>&1 & echo $!' > $OCF_RESKEY_pid
 
     # Spin waiting for the server to come up.
     # Let the CRM/LRM time us out if required
