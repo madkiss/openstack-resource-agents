@@ -3,27 +3,25 @@
 #
 # OpenStack Cinder Scheduler Service (cinder-schedule)
 #
-# Description:  Manages an OpenStack Cinder Scheduler Service (cinder-schedule) process as an HA resource
+# Description: Manages an OpenStack Cinder Scheduler Service (cinder-schedule) process as an HA resource
 #
-# Authors:      Emilien Macchi
+# Authors: Emilien Macchi
 # Mainly inspired by the Nova Scheduler resource agent written by Sebastien Han
 #
-# Support:      openstack@lists.launchpad.net
-# License:      Apache Software License (ASL) 2.0
+# Support: openstack@lists.launchpad.net
+# License: Apache Software License (ASL) 2.0
 #
 #
 # See usage() function below for more details ...
 #
 # OCF instance parameters:
-#   OCF_RESKEY_binary
-#   OCF_RESKEY_config
-#   OCF_RESKEY_user
-#   OCF_RESKEY_pid
-#   OCF_RESKEY_monitor_binary
-#   OCF_RESKEY_database_server_port
-#   OCF_RESKEY_amqp_server_port
-#   OCF_RESKEY_zeromq
-#   OCF_RESKEY_additional_parameters
+# OCF_RESKEY_binary
+# OCF_RESKEY_config
+# OCF_RESKEY_user
+# OCF_RESKEY_pid
+# OCF_RESKEY_monitor_binary
+# OCF_RESKEY_amqp_server_port
+# OCF_RESKEY_additional_parameters
 #######################################################################
 # Initialization:
 
@@ -38,17 +36,13 @@ OCF_RESKEY_binary_default="cinder-schedule"
 OCF_RESKEY_config_default="/etc/cinder/cinder.conf"
 OCF_RESKEY_user_default="cinder"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
-OCF_RESKEY_database_server_port_default="3306"
 OCF_RESKEY_amqp_server_port_default="5672"
-OCF_RESKEY_zeromq_default="false"
 
 : ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
 : ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
 : ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
 : ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
-: ${OCF_RESKEY_database_server_port=${OCF_RESKEY_database_server_port_default}}
 : ${OCF_RESKEY_amqp_server_port=${OCF_RESKEY_amqp_server_port_default}}
-: ${OCF_RESKEY_zeromq=${OCF_RESKEY_zeromq_default}}
 
 #######################################################################
 
@@ -56,7 +50,7 @@ usage() {
     cat <<UEND
         usage: $0 (start|stop|validate-all|meta-data|status|monitor)
 
-        $0 manages an OpenStack Cinder Scheduler Service (cinder-schedule) process as an HA resource 
+        $0 manages an OpenStack Cinder Scheduler Service (cinder-schedule) process as an HA resource
 
         The 'start' operation starts the scheduler service.
         The 'stop' operation stops the scheduler service.
@@ -77,7 +71,7 @@ meta_data() {
 
 <longdesc lang="en">
 Resource agent for the OpenStack Cinder Scheduler Service (cinder-schedule)
-May manage a cinder-schedule instance or a clone set that 
+May manage a cinder-schedule instance or a clone set that
 creates a distributed cinder-schedule cluster.
 </longdesc>
 <shortdesc lang="en">Manages the OpenStack Cinder Scheduler Service (cinder-schedule)</shortdesc>
@@ -115,29 +109,14 @@ The pid file to use for this OpenStack Cinder Scheduler Service (cinder-schedule
 <content type="string" default="${OCF_RESKEY_pid_default}" />
 </parameter>
 
-<parameter name="database_server_port" unique="0" required="0">                                                                                                                                                              
-<longdesc lang="en">                                                                                                                                                                                                      
-The listening port number of the database server. Use for monitoring purposes                                                                                                                                        
-</longdesc>                                                                                                                                                                                                               
-<shortdesc lang="en">Database listening port</shortdesc>                                                                                                                                                                      
-<content type="integer" default="${OCF_RESKEY_database_server_port_default}" />                                                                                                                                              
-</parameter>  
+<parameter name="amqp_server_port" unique="0" required="0">
+<longdesc lang="en">
+The listening port number of the AMQP server. Use for monitoring purposes
+</longdesc>
+<shortdesc lang="en">AMQP listening port</shortdesc>
+<content type="integer" default="${OCF_RESKEY_amqp_server_port_default}" />
+</parameter>
 
-<parameter name="amqp_server_port" unique="0" required="0">                                                                                                                                                              
-<longdesc lang="en">                                                                                                                                                                                                      
-The listening port number of the AMQP server. Use for monitoring purposes                                                                                                                                        
-</longdesc>                                                                                                                                                                                                               
-<shortdesc lang="en">AMQP listening port</shortdesc>                                                                                                                                                                      
-<content type="integer" default="${OCF_RESKEY_amqp_server_port_default}" />                                                                                                                                              
-</parameter>      
-
-<parameter name="zeromq" unique="0" required="0">                                                                                                                                                              
-<longdesc lang="en">                                                                                                                                                                                                      
-If zeromq is used, this will disable the connection test to the AMQP server. Use for monitoring purposes                                                                                                                               
-</longdesc>                                                                                                                                                                                                               
-<shortdesc lang="en">Zero-MQ usage</shortdesc>                                                                                                                                                                      
-<content type="boolean" default="${OCF_RESKEY_zeromq_default}" />                                                                                                                                              
-</parameter>  
 
 <parameter name="additional_parameters" unique="0" required="0">
 <longdesc lang="en">
@@ -188,7 +167,6 @@ cinder_scheduler_validate() {
 
     check_binary $OCF_RESKEY_binary
     check_binary netstat
-    cinder_scheduler_check_port $OCF_RESKEY_database_server_port
     cinder_scheduler_check_port $OCF_RESKEY_amqp_server_port
     
     # A config file on shared storage that is not available
@@ -250,25 +228,14 @@ cinder_scheduler_monitor() {
 
     # Check the connections according to the PID.
     # We are sure to hit the scheduler process and not other Cinder process with the same connection behavior (for example cinder-api)
-    if ocf_is_true "$OCF_RESKEY_zeromq"; then
-	    pid=`cat $OCF_RESKEY_pid`
-	    scheduler_db_check=`netstat -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
-	    rc_db=$?
-	    if [ $rc_db -ne 0 ]; then
-	        ocf_log err "Cinder Scheduler is not connected to the database server: $rc_db"
-	        return $OCF_NOT_RUNNING
-	    fi
-	else
+
         pid=`cat $OCF_RESKEY_pid`
-        scheduler_db_check=`netstat -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
-        rc_db=$?
         scheduler_amqp_check=`netstat -punt | grep -s "$OCF_RESKEY_amqp_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
         rc_amqp=$?
-	    if [ $rc_amqp -ne 0 ] || [ $rc_db -ne 0 ]; then
-	        ocf_log err "Cinder Scheduler is not connected to the AMQP server and/or the database server: AMQP connection test returned $rc_amqp and database connection test returned $rc_db"
-	        return $OCF_NOT_RUNNING
-	    fi
-	fi
+if [ $rc_amqp -ne 0 ] || [ $rc_db -ne 0 ]; then
+ocf_log err "Cinder Scheduler is not connected to the AMQP server : AMQP connection test returned $rc_amqp"
+return $OCF_NOT_RUNNING
+fi
 
     ocf_log debug "OpenStack Cinder Scheduler (cinder-schedule) monitor succeeded"
     return $OCF_SUCCESS
@@ -361,9 +328,9 @@ cinder_scheduler_stop() {
 #######################################################################
 
 case "$1" in
-  meta-data)    meta_data
+  meta-data) meta_data
                 exit $OCF_SUCCESS;;
-  usage|help)   usage
+  usage|help) usage
                 exit $OCF_SUCCESS;;
 esac
 
@@ -372,11 +339,11 @@ cinder_scheduler_validate || exit $?
 
 # What kind of method was invoked?
 case "$1" in
-  start)        cinder_scheduler_start;;
-  stop)         cinder_scheduler_stop;;
-  status)       cinder_scheduler_status;;
-  monitor)      cinder_scheduler_monitor;;
+  start) cinder_scheduler_start;;
+  stop) cinder_scheduler_stop;;
+  status) cinder_scheduler_status;;
+  monitor) cinder_scheduler_monitor;;
   validate-all) ;;
-  *)            usage
+  *) usage
                 exit $OCF_ERR_UNIMPLEMENTED;;
 esac
