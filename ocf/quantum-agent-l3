@@ -20,7 +20,7 @@
 #   OCF_RESKEY_plugin_config
 #   OCF_RESKEY_user
 #   OCF_RESKEY_pid
-#   OCF_RESKEY_amqp_server_port
+#   OCF_RESKEY_quantum_server_port
 #   OCF_RESKEY_additional_parameters
 #######################################################################
 # Initialization:
@@ -37,14 +37,14 @@ OCF_RESKEY_config_default="/etc/quantum/quantum.conf"
 OCF_RESKEY_plugin_config_default="/etc/quantum/l3_agent.ini"
 OCF_RESKEY_user_default="quantum"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
-OCF_RESKEY_amqp_server_port_default="5672"
+OCF_RESKEY_quantum_server_port_default="9696"
 
 : ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
 : ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
 : ${OCF_RESKEY_plugin_config=${OCF_RESKEY_plugin_config_default}}
 : ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
 : ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
-: ${OCF_RESKEY_amqp_server_port=${OCF_RESKEY_amqp_server_port_default}}
+: ${OCF_RESKEY_quantum_server_port=${OCF_RESKEY_quantum_server_port_default}}
 
 #######################################################################
 
@@ -72,7 +72,7 @@ meta_data() {
 <version>1.0</version>
 
 <longdesc lang="en">
-Resource agent for the OpenStack Quantum DHCP Service (quantum-l3-agent)
+Resource agent for the OpenStack Quantum L3 Service (quantum-l3-agent)
 May manage a quantum-l3-agent instance or a clone set that 
 creates a distributed quantum-l3-agent cluster.
 </longdesc>
@@ -81,9 +81,9 @@ creates a distributed quantum-l3-agent cluster.
 
 <parameter name="binary" unique="0" required="0">
 <longdesc lang="en">
-Location of the OpenStack DHCP Server server binary (quantum-l3-agent)
+Location of the OpenStack L3 Server server binary (quantum-l3-agent)
 </longdesc>
-<shortdesc lang="en">OpenStack DHCP Server server binary (quantum-l3-agent)</shortdesc>
+<shortdesc lang="en">OpenStack L3 Server server binary (quantum-l3-agent)</shortdesc>
 <content type="string" default="${OCF_RESKEY_binary_default}" />
 </parameter>
 
@@ -91,7 +91,7 @@ Location of the OpenStack DHCP Server server binary (quantum-l3-agent)
 <longdesc lang="en">
 Location of the OpenStack Quantum Service (quantum-server) configuration file
 </longdesc>
-<shortdesc lang="en">OpenStack DHCP Server (quantum-server) config file</shortdesc>
+<shortdesc lang="en">OpenStack L3 Server (quantum-server) config file</shortdesc>
 <content type="string" default="${OCF_RESKEY_config_default}" />
 </parameter>
 
@@ -99,7 +99,7 @@ Location of the OpenStack Quantum Service (quantum-server) configuration file
 <longdesc lang="en">
 Location of the OpenStack L3 Service (quantum-l3-agent) configuration file
 </longdesc>
-<shortdesc lang="en">OpenStack DHCP Server (quantum-l3-agent) config file</shortdesc>
+<shortdesc lang="en">OpenStack L3 Server (quantum-l3-agent) config file</shortdesc>
 <content type="string" default="${OCF_RESKEY_plugin_config_default}" />
 </parameter>
 
@@ -119,12 +119,12 @@ The pid file to use for this OpenStack L3 Service (quantum-l3-agent) instance
 <content type="string" default="${OCF_RESKEY_pid_default}" />
 </parameter>  
 
-<parameter name="amqp_server_port" unique="0" required="0">                                                                                                                                                              
+<parameter name="quantum_server_port" unique="0" required="0">                                                                                                                                                              
 <longdesc lang="en">                                                                                                                                                                                                      
 The listening port number of the AMQP server. Mandatory to perform a monitor check                                                                                                                                        
 </longdesc>                                                                                                                                                                                                               
 <shortdesc lang="en">AMQP listening port</shortdesc>                                                                                                                                                                      
-<content type="integer" default="${OCF_RESKEY_amqp_server_port_default}" />                                                                                                                                              
+<content type="integer" default="${OCF_RESKEY_quantum_server_port_default}" />                                                                                                                                              
 </parameter>      
 
 
@@ -153,7 +153,7 @@ END
 #######################################################################
 # Functions invoked by resource manager actions
 
-quantum_dhcp_agent_validate() {
+quantum_l3_agent_validate() {
     local rc
 
     check_binary $OCF_RESKEY_binary
@@ -179,12 +179,12 @@ quantum_dhcp_agent_validate() {
     true
 }
 
-quantum_dhcp_agent_status() {
+quantum_l3_agent_status() {
     local pid
     local rc
 
     if [ ! -f $OCF_RESKEY_pid ]; then
-        ocf_log info "OpenStack DHCP Server (quantum-l3-agent) is not running"
+        ocf_log info "OpenStack L3 Server (quantum-l3-agent) is not running"
         return $OCF_NOT_RUNNING
     else
         pid=`cat $OCF_RESKEY_pid`
@@ -195,12 +195,12 @@ quantum_dhcp_agent_status() {
     if [ $rc -eq 0 ]; then
         return $OCF_SUCCESS
     else
-        ocf_log info "Old PID file found, but OpenStack DHCP Server (quantum-l3-agent) is not running"
+        ocf_log info "Old PID file found, but OpenStack L3 Server (quantum-l3-agent) is not running"
         return $OCF_NOT_RUNNING
     fi
 }
 
-quantum_dhcp_agent_monitor() {
+quantum_l3_agent_monitor() {
     local rc
     local pid
     local rc_db
@@ -208,7 +208,7 @@ quantum_dhcp_agent_monitor() {
     local network_db_check
     local network_amqp_check
     
-    quantum_dhcp_agent_status
+    quantum_l3_agent_status
     rc=$?
 
     # If status returned anything but success, return that immediately
@@ -220,58 +220,58 @@ quantum_dhcp_agent_monitor() {
     # We are sure to hit the scheduler process and not other Quantum process with the same connection behavior (for example quantum-server)
         pid=`cat $OCF_RESKEY_pid`
         # check the connections according to the PID
-        network_amqp_check=`netstat -punt | grep -s "$OCF_RESKEY_amqp_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
+        network_amqp_check=`netstat -punt | grep -s "$OCF_RESKEY_quantum_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
         rc_amqp=$?
 	    if [ $rc_amqp -ne 0 ]; then
-	        ocf_log err "Quantum DHCP Server is not connected to the AMQP server : AMQP connection test returned $rc_amqp"
+	        ocf_log err "Quantum L3 Server is not connected to the Quantum server : Quantum connection test returned $rc_amqp"
 	        return $OCF_NOT_RUNNING
 	    fi
 
-    ocf_log debug "OpenStack DHCP Server (quantum-l3-agent) monitor succeeded"
+    ocf_log debug "OpenStack L3 Server (quantum-l3-agent) monitor succeeded"
     return $OCF_SUCCESS
 }
 
-quantum_dhcp_agent_start() {
+quantum_l3_agent_start() {
     local rc
 
-    quantum_dhcp_agent_status
+    quantum_l3_agent_status
     rc=$?
     if [ $rc -eq $OCF_SUCCESS ]; then
-        ocf_log info "OpenStack DHCP Server (quantum-l3-agent) already running"
+        ocf_log info "OpenStack L3 Server (quantum-l3-agent) already running"
         return $OCF_SUCCESS
     fi
 
     # run the actual quantum-l3-agent daemon. Don't use ocf_run as we're sending the tool's output
     # straight to /dev/null anyway and using ocf_run would break stdout-redirection here.
     su ${OCF_RESKEY_user} -s /bin/sh -c "${OCF_RESKEY_binary} --config-file=$OCF_RESKEY_config \
-       --config-file=$OCF_RESKEY_plugin_config logfile=/var/log/quantum/dhcp-agent.log $OCF_RESKEY_additional_parameters"' >> \
+       --config-file=$OCF_RESKEY_plugin_config --logfile=/var/log/quantum/l3-agent.log $OCF_RESKEY_additional_parameters"' >> \
 	/dev/null 2>&1 & echo $!' > $OCF_RESKEY_pid
 
     # Spin waiting for the server to come up.
     # Let the CRM/LRM time us out if required
     while true; do
-    quantum_dhcp_agent_monitor
+    quantum_l3_agent_monitor
     rc=$?
     [ $rc -eq $OCF_SUCCESS ] && break
     if [ $rc -ne $OCF_NOT_RUNNING ]; then
-        ocf_log err "OpenStack DHCP Server (quantum-l3-agent) start failed"
+        ocf_log err "OpenStack L3 Server (quantum-l3-agent) start failed"
         exit $OCF_ERR_GENERIC
     fi
     sleep 1
     done
 
-    ocf_log info "OpenStack DHCP Server (quantum-l3-agent) started"
+    ocf_log info "OpenStack L3 Server (quantum-l3-agent) started"
     return $OCF_SUCCESS
 }
 
-quantum_dhcp_agent_stop() {
+quantum_l3_agent_stop() {
     local rc
     local pid
 
-    quantum_dhcp_agent_status
+    quantum_l3_agent_status
     rc=$?
     if [ $rc -eq $OCF_NOT_RUNNING ]; then
-        ocf_log info "OpenStack DHCP Server (quantum-l3-agent) already stopped"
+        ocf_log info "OpenStack L3 Server (quantum-l3-agent) already stopped"
         return $OCF_SUCCESS
     fi
 
@@ -281,7 +281,7 @@ quantum_dhcp_agent_stop() {
     ocf_run kill -s TERM $pid
     rc=$?
     if [ $rc -ne 0 ]; then
-        ocf_log err "OpenStack DHCP Server (quantum-l3-agent) couldn't be stopped"
+        ocf_log err "OpenStack L3 Server (quantum-l3-agent) couldn't be stopped"
         exit $OCF_ERR_GENERIC
     fi
 
@@ -292,26 +292,26 @@ quantum_dhcp_agent_stop() {
     fi
     count=0
     while [ $count -lt $shutdown_timeout ]; do
-        quantum_dhcp_agent_status
+        quantum_l3_agent_status
         rc=$?
         if [ $rc -eq $OCF_NOT_RUNNING ]; then
             break
         fi
         count=`expr $count + 1`
         sleep 1
-        ocf_log debug "OpenStack DHCP Server (quantum-l3-agent) still hasn't stopped yet. Waiting ..."
+        ocf_log debug "OpenStack L3 Server (quantum-l3-agent) still hasn't stopped yet. Waiting ..."
     done
 
-    quantum_dhcp_agent_status
+    quantum_l3_agent_status
     rc=$?
     if [ $rc -ne $OCF_NOT_RUNNING ]; then
         # SIGTERM didn't help either, try SIGKILL
-        ocf_log info "OpenStack DHCP Server (quantum-l3-agent) failed to stop after ${shutdown_timeout}s \
+        ocf_log info "OpenStack L3 Server (quantum-l3-agent) failed to stop after ${shutdown_timeout}s \
           using SIGTERM. Trying SIGKILL ..."
         ocf_run kill -s KILL $pid
     fi
 
-    ocf_log info "OpenStack DHCP Server (quantum-l3-agent) stopped"
+    ocf_log info "OpenStack L3 Server (quantum-l3-agent) stopped"
 
     rm -f $OCF_RESKEY_pid
 
@@ -328,14 +328,14 @@ case "$1" in
 esac
 
 # Anything except meta-data and help must pass validation
-quantum_dhcp_agent_validate || exit $?
+quantum_l3_agent_validate || exit $?
 
 # What kind of method was invoked?
 case "$1" in
-  start)        quantum_dhcp_agent_start;;
-  stop)         quantum_dhcp_agent_stop;;
-  status)       quantum_dhcp_agent_status;;
-  monitor)      quantum_dhcp_agent_monitor;;
+  start)        quantum_l3_agent_start;;
+  stop)         quantum_l3_agent_stop;;
+  status)       quantum_l3_agent_status;;
+  monitor)      quantum_l3_agent_monitor;;
   validate-all) ;;
   *)            usage
                 exit $OCF_ERR_UNIMPLEMENTED;;
