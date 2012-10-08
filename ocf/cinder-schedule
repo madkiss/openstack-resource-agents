@@ -32,7 +32,7 @@
 
 # Fill in some defaults if no values are specified
 
-OCF_RESKEY_binary_default="cinder-schedule"
+OCF_RESKEY_binary_default="cinder-scheduler"
 OCF_RESKEY_config_default="/etc/cinder/cinder.conf"
 OCF_RESKEY_user_default="cinder"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
