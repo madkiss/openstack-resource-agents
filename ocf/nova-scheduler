@@ -95,7 +95,7 @@ Location of the OpenStack Nova Scheduler server binary (nova-scheduler)
 <longdesc lang="en">
 Location of the OpenStack Scheduler Service (nova-scheduler) configuration file
 </longdesc>
-<shortdesc lang="en">OpenStack Nova Scheduler (nova-scheduler registry) config file</shortdesc>
+<shortdesc lang="en">OpenStack Nova Scheduler (nova-scheduler) config file</shortdesc>
 <content type="string" default="${OCF_RESKEY_config_default}" />
 </parameter>
 
