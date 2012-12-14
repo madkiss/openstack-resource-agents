@@ -274,7 +274,6 @@ quantum_l3_agent_stop() {
 
     # Try SIGTERM
     pid=`cat $OCF_RESKEY_pid`
-    pid="$pid `ps ax | grep -v grep | grep 'dnsmasq' | cut -c1-5`"
     ocf_run kill -s TERM $pid
     rc=$?
     if [ $rc -ne 0 ]; then
