@@ -20,7 +20,6 @@
 #   OCF_RESKEY_agent_config
 #   OCF_RESKEY_user
 #   OCF_RESKEY_pid
-#   OCF_RESKEY_amqp_server_port
 #   OCF_RESKEY_additional_parameters
 #######################################################################
 # Initialization:
@@ -37,14 +36,12 @@ OCF_RESKEY_config_default="/etc/quantum/quantum.conf"
 OCF_RESKEY_agent_config_default="/etc/quantum/metadata_agent.ini"
 OCF_RESKEY_user_default="quantum"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
-OCF_RESKEY_amqp_server_port_default="5672"
 
 : ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
 : ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
 : ${OCF_RESKEY_agent_config=${OCF_RESKEY_agent_config_default}}
 : ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
 : ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
-: ${OCF_RESKEY_amqp_server_port=${OCF_RESKEY_amqp_server_port_default}}
 
 #######################################################################
 
