@@ -99,11 +99,11 @@ User running OpenStack Quantum Metadata Agent (quantum-metadata-agent)
 <content type="string" default="${OCF_RESKEY_user_default}" />
 </parameter>
 
-<parameter name="agent config" unique="0" required="0">
+<parameter name="agent_config" unique="0" required="0">
 <longdesc lang="en">
 Location of the OpenStack Metadata agent configuration file
 </longdesc>
-<shortdesc lang="en">OpenStack OVS (quantum-ovs) config file</shortdesc>
+<shortdesc lang="en">OpenStack Metadata (quantum-metadata-agent) config file</shortdesc>
 <content type="string" default="${OCF_RESKEY_agent_config_default}" />
 </parameter>
 
