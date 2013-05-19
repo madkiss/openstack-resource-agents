@@ -36,12 +36,14 @@ OCF_RESKEY_config_default="/etc/cinder/cinder.conf"
 OCF_RESKEY_user_default="cinder"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
 OCF_RESKEY_amqp_server_port_default="5672"
+OCF_RESKEY_multibackend_default="false"
 
 : ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
 : ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
 : ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
 : ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
 : ${OCF_RESKEY_amqp_server_port=${OCF_RESKEY_amqp_server_port_default}}
+: ${OCF_RESKEY_multibackend=${OCF_RESKEY_multibackend_default}}
 
 #######################################################################
 
@@ -116,6 +118,13 @@ The listening port number of the AMQP server. Mandatory to perform a monitor che
 <content type="integer" default="${OCF_RESKEY_amqp_server_port_default}" />                                                                                                                                              
 </parameter>      
  
+<parameter name="multibackend" unique="0" required="0">
+<longdesc lang="en">
+If the multi-backend is enabled, the monitor check is slightly different since cinder-volume spawns one thread for each backend.
+</longdesc>
+<shortdesc lang="en">Multi Backend usage</shortdesc>
+<content type="boolean" default="${OCF_RESKEY_multibackend_default}" />
+</parameter>
 
 <parameter name="additional_parameters" unique="0" required="0">
 <longdesc lang="en">
@@ -202,17 +211,31 @@ cinder_volume_monitor() {
         return $rc
     fi
 
-    # Check the connections according to the PID
-    # We are sure to hit the scheduler process and not other nova process with the same connection behavior (for example nova-cert)
+    # Grab cinder-volume PID
+    pid=`cat $OCF_RESKEY_pid`
 
-        pid=`cat $OCF_RESKEY_pid`
-        # check the connections according to the PID
-        volume_amqp_check=`netstat -punt | grep -s "$OCF_RESKEY_amqp_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
+    if ocf_is_true "$OCF_RESKEY_multibackend"; then
+      # Grab the child's PIDs
+      for i in `ps -o pid --no-headers --ppid $pid`
+      do
+        volume_amqp_check=`netstat -punt | grep -s "$OCF_RESKEY_amqp_server_port" | grep -s "$i" | grep -qs "ESTABLISHED"`
         rc=$?
         if [ $rc -ne 0 ]; then
-            ocf_log err "Cinder Volume is not connected to the AMQP server: $rc"
-            return $OCF_NOT_RUNNING
+          ocf_log err "This child process from Cinder Volume is not connected to the AMQP server: $rc"
+          return $OCF_NOT_RUNNING
         fi
+      done
+    else
+      # Check the connections according to the PID
+      # We are sure to hit the scheduler process and not other nova process with the same connection behavior (for example nova-cert)
+      # check the connections according to the PID
+      volume_amqp_check=`netstat -punt | grep -s "$OCF_RESKEY_amqp_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
+      rc=$?
+      if [ $rc -ne 0 ]; then
+          ocf_log err "Cinder Volume is not connected to the AMQP server: $rc"
+          return $OCF_NOT_RUNNING
+      fi
+    fi
 
     ocf_log debug "OpenStack Cinder Volume (cinder-volume) monitor succeeded"
     return $OCF_SUCCESS
