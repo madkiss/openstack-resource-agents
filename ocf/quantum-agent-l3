@@ -20,7 +20,7 @@
 #   OCF_RESKEY_plugin_config
 #   OCF_RESKEY_user
 #   OCF_RESKEY_pid
-#   OCF_RESKEY_quantum_server_port
+#   OCF_RESKEY_amqp_server_port
 #   OCF_RESKEY_additional_parameters
 #######################################################################
 # Initialization:
@@ -37,14 +37,14 @@ OCF_RESKEY_config_default="/etc/quantum/quantum.conf"
 OCF_RESKEY_plugin_config_default="/etc/quantum/l3_agent.ini"
 OCF_RESKEY_user_default="quantum"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
-OCF_RESKEY_quantum_server_port_default="9696"
+OCF_RESKEY_amqp_server_port_default="5672"
 
 : ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
 : ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
 : ${OCF_RESKEY_plugin_config=${OCF_RESKEY_plugin_config_default}}
 : ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
 : ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
-: ${OCF_RESKEY_quantum_server_port=${OCF_RESKEY_quantum_server_port_default}}
+: ${OCF_RESKEY_amqp_server_port=${OCF_RESKEY_amqp_server_port_default}}
 
 #######################################################################
 
@@ -119,12 +119,12 @@ The pid file to use for this OpenStack L3 Service (quantum-l3-agent) instance
 <content type="string" default="${OCF_RESKEY_pid_default}" />
 </parameter>  
 
-<parameter name="quantum_server_port" unique="0" required="0">                                                                                                                                                              
+<parameter name="amqp_server_port" unique="0" required="0">                                                                                                                                                              
 <longdesc lang="en">                                                                                                                                                                                                      
 The listening port number of the AMQP server. Mandatory to perform a monitor check                                                                                                                                        
 </longdesc>                                                                                                                                                                                                               
 <shortdesc lang="en">AMQP listening port</shortdesc>                                                                                                                                                                      
-<content type="integer" default="${OCF_RESKEY_quantum_server_port_default}" />                                                                                                                                              
+<content type="integer" default="${OCF_RESKEY_amqp_server_port_default}" />                                                                                                                                              
 </parameter>      
 
 
@@ -217,7 +217,7 @@ quantum_l3_agent_monitor() {
     # We are sure to hit the scheduler process and not other Quantum process with the same connection behavior (for example quantum-server)
         pid=`cat $OCF_RESKEY_pid`
         # check the connections according to the PID
-        network_amqp_check=`netstat -punt | grep -s "$OCF_RESKEY_quantum_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
+        network_amqp_check=`netstat -punt | grep -s "$OCF_RESKEY_amqp_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
         rc=$?
 	    if [ $rc -ne 0 ]; then
 	        ocf_log err "Quantum L3 Server is not connected to the Quantum server: $rc"
