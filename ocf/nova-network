@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 #
-# OpenStack Network Service (nova-network) (replaced by Quantum in Folsom)
+# OpenStack Network Service (nova-network) (replaced by Neutron in Folsom)
 #
 # Description:  Manages an OpenStack Network Service (nova-network) process as an HA resource
 #
