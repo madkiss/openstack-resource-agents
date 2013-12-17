@@ -1,0 +1,530 @@
+#!/bin/sh
+#
+# Support:      wuzhou@kylinos.com.cn / zhou.wu@kylin-cloud.com
+# License:      GNU General Public License (GPL)
+#
+#   Resource Agent for vm managed by the openstack nova API.
+#   Requires a running libvirt daemon (libvirtd) and novaclient.
+#
+#   (c) 2008-2013 wu zhou
+#
+#        usage: $0 {start|stop|status|monitor|migrate_to|migrate_from|meta-data|validate-all}
+#
+#######################################################################
+# Initialization:
+# export OCF_ROOT="/usr/lib/ocf"
+
+: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
+. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
+
+# Defaults
+OCF_RESKEY_os_region_name_default="RegionOne"
+OCF_RESKEY_os_tenant_name_default="admin"
+OCF_RESKEY_os_username_default="ha"
+OCF_RESKEY_os_password_default="admin_pass"
+OCF_RESKEY_os_auth_url_default="http://controller1:35357/v2.0"
+
+: ${OCF_RESKEY_os_region_name=${OCF_RESKEY_os_region_name_default}}
+: ${OCF_RESKEY_os_tenant_name=${OCF_RESKEY_os_tenant_name_default}}
+: ${OCF_RESKEY_os_username=${OCF_RESKEY_os_username_default}}
+: ${OCF_RESKEY_os_password=${OCF_RESKEY_os_password_default}}
+: ${OCF_RESKEY_os_auth_url=${OCF_RESKEY_os_auth_url_default}}
+
+##
+hypervisor_default="$(virsh --quiet uri)"
+VIRSH_OPTIONS="--connect=${hypervisor_default} --quiet"
+
+#######################################################################
+#Just for debug,In real world this value must get it from meta_data()
+# export OCF_RESKEY_id="5df31014-e814-4e16-9144-146d90cf8396"
+#######################################################################
+
+usage() {
+  # echo "usage: $0 {start|stop|status|monitor|migrate_to|migrate_from|meta-data|validate-all}"
+  echo "usage: $0 {start|stop|status|monitor|meta-data|validate-all}"
+}
+
+
+meta_data() {
+        cat <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
+<resource-agent name="vm"> 
+  <version>1.1</version>  
+  <longdesc lang="en">Resource agent for a Virtual Machine managed by libvirtd and nova API.</longdesc>  
+  <shortdesc lang="en">vm Resource agent</shortdesc>  
+  <parameters> 
+    <parameter name="id" unique="1" required="1"> 
+      <longdesc lang="en">cloud vm's uuid</longdesc>  
+      <shortdesc lang="en">cloud vm's uuid</shortdesc>  
+      <content type="string" default=""/> 
+    </parameter>  
+    <parameter name="os_region_name" unique="0" required="0"> 
+      <longdesc lang="en">cloud's region name</longdesc>  
+      <shortdesc lang="en">cloud's region name</shortdesc>  
+      <content type="string" default="${OCF_RESKEY_os_region_name_default}"/> 
+    </parameter>  
+    <parameter name="os_tenant_name" unique="0" required="0"> 
+      <longdesc lang="en">cloud's admin tenant_name</longdesc>  
+      <shortdesc lang="en">cloud's admin tenant_name</shortdesc>  
+      <content type="string" default="${OCF_RESKEY_os_tenant_name_default}"/> 
+    </parameter>  
+    <parameter name="os_username" unique="0" required="0"> 
+      <longdesc lang="en">cloud's admin username</longdesc>  
+      <shortdesc lang="en">cloud's admin username</shortdesc>  
+      <content type="string" default="${OCF_RESKEY_os_username_default}"/> 
+    </parameter>  
+    <parameter name="os_password" unique="0" required="0"> 
+      <longdesc lang="en">cloud's admin password</longdesc>  
+      <shortdesc lang="en">cloud's admin password</shortdesc>  
+      <content type="string" default="${OCF_RESKEY_os_password_default}"/> 
+    </parameter>  
+    <parameter name="os_auth_url" unique="0" required="0"> 
+      <longdesc lang="en">cloud's admin auth_url</longdesc>  
+      <shortdesc lang="en">cloud's admin auth_url</shortdesc>  
+      <content type="string" default="${OCF_RESKEY_os_auth_url_default}"/> 
+    </parameter> 
+  </parameters>  
+  <actions> 
+    <action name="start" timeout="90"/>  
+    <action name="stop" timeout="90"/>  
+    <action name="status" depth="0" timeout="30" interval="10"/>  
+    <action name="monitor" depth="0" timeout="30" interval="10"/>  
+   
+
+    <action name="meta-data" timeout="5"/>  
+    <action name="validate-all" timeout="5"/> 
+  </actions> 
+</resource-agent>
+EOF
+}
+##############################################################################
+get_instance_name(){      
+    Instance_name="`nova show ${OCF_RESKEY_id} |grep 'OS-EXT-SRV-ATTR:instance_name'|sed -e 's/|/\n/g'| sed 's/ //g'|sed -n 3p`"
+    if [ -z $Instance_name ];then 
+        if [ -f "/dev/shm/${OCF_RESKEY_id}" ]; then
+            ocf_log info "Get instance_name from mem Cache."
+            Instance_name="`cat /dev/shm/${OCF_RESKEY_id}`"
+            return  $OCF_SUCCESS
+        else  
+            ocf_log error " Instance_name is empty! "
+            return $OCF_ERR_GENERIC
+        fi
+    else
+        ocf_log info "Cache the instance_name to the mem."
+        echo $Instance_name > "/dev/shm/${OCF_RESKEY_id}"
+    fi
+    ocf_log debug " Instance_name is $Instance_name! "
+    return $OCF_SUCCESS
+}
+
+
+
+vm_validate_all() {
+    # Required binaries:
+    for binary in virsh sed nova crm_mon; do
+        check_binary $binary
+    done
+
+    if [ -z ${OCF_RESKEY_id} ]; then
+        ocf_log error "Missing configuration parameter \"id\"."
+        return $OCF_ERR_CONFIGURED
+    fi
+
+}
+
+vm_monitor() {
+    ocf_log debug "In vm function vm_monitor........................................................................................................."
+    local rc
+
+    # exit immediately if configuration is not valid
+    vm_validate_all || exit $?
+
+    # ocf_run frobnicate --test
+
+    # This example assumes the following exit code convention
+    # for frobnicate:
+    # 0: running, and fully caught up with master
+    # 1: gracefully stopped
+    # any other: error
+    get_instance_name    
+    rc=$OCF_ERR_GENERIC
+    local status="no state"
+   
+    status="`virsh $VIRSH_OPTIONS domstate $Instance_name 2>/dev/null`"
+    case "$status" in
+        "shut off")
+            # shut off: Machine is defined, but not started
+            ocf_log info "Virtual Machine(from virsh) $Instance_name is currently $status."
+            rc=$OCF_NOT_RUNNING
+            ;;
+        running)
+            # running: Machine is currently actively consuming cycles
+            # paused: Machine is paused (suspended)
+            # idle: Machine is running but idle
+            # blocked: synonym for idle used by legacy Xen versions
+            ocf_log info "Virtual Machine(from virsh) $Instance_name is currently $status."
+            rc=$OCF_SUCCESS
+            ;;
+        paused|idle|blocked)
+            ocf_log info "Virtual Machine(from virsh) $Instance_name is currently $status..."
+            rc=$OCF_NOT_RUNNING
+            ;;
+        ""|"no state")
+            # Empty string may be returned when virsh does not
+            # receive a reply from libvirtd.
+            # "no state" may occur when the Machine is currently
+            # being migrated (on the migration target only), or
+            # whenever virsh can't reliably obtain the Machine
+            # state.
+            status="no state"
+            if [ "$__OCF_ACTION" = "stop" ]; then
+                # During the stop operation, we want to bail out
+                # quickly, so as to be able to force-stop (destroy)
+                # the Machine if necessary.
+                ocf_log error "Virtual Machine(from virsh) $Instance_name has no state during stop operation, bailing out."
+                return $OCF_ERR_GENERIC;
+            else
+                ocf_log info "Virtual Machine(from virsh) $Instance_name currently has no state, maybe just not running(status code:$OCF_NOT_RUNNING) in this Machine..."
+                # sleep 1
+                return $OCF_NOT_RUNNING
+            fi
+            ;;
+        *)
+            # any other output is unexpected.
+            ocf_log error "Virtual Machine(from virsh) $Instance_name has unknown status \"$status\"!"
+            ;;
+    esac
+    ocf_log info "return rc=$rc,OCF_NOT_RUNNING=$OCF_NOT_RUNNING"
+    return $rc
+}
+
+# get ${OCF_RESKEY_id} / target node 's hostname and status 
+host_status(){ 
+    ocf_log debug ""
+    if [ -z $1 ]; then
+        #from nova api , not OS-EXT-SRV-ATTR:host_name ,but OS-EXT-SRV-ATTR:host   
+        ocf_log debug "no Parameter to host_status()..."
+        host_name="`nova show ${OCF_RESKEY_id} |grep 'OS-EXT-SRV-ATTR:host'|sed -e 's/|/\n/g'| sed 's/ //g'|sed -n 3p`"
+        if [ -z $host_name ];then       
+            ocf_log error "${OCF_RESKEY_id} 's host is empty!"
+            return $OCF_ERR_GENERIC;
+        fi
+        ocf_log debug "${OCF_RESKEY_id} 's host is $host_name!"
+    else
+        ocf_log debug " Parameter is $1 ."
+        host_name=$1
+        ocf_log debug "Host name is $host_name!"
+    fi
+    host_name_status="`nova  service-list --host $host_name|grep nova-compute|grep $host_name|sed -e 's/|/\n/g'| sed 's/ //g'|sed -n 6p`"
+    if [ -z $host_name_status ];then       
+        ocf_log error "Get $host_name 's status is ERROR!"
+        return $OCF_ERR_GENERIC;
+    fi
+    ocf_log info "$host_name 's status is $host_name_status!"
+    case "$host_name_status" in
+        "up")
+            return $OCF_SUCCESS
+            ;;
+        "down")
+            return $OCF_NOT_RUNNING
+            ;;
+        *)
+            ocf_log error "Get $host_name 's status is unknown!" 
+            return $OCF_ERR_GENERIC;
+            ;; 
+    esac          
+}
+
+virtual_machine_status(){
+    VM_STATUS="`nova show ${OCF_RESKEY_id}|grep status|sed -e 's/|/\n/g'| sed 's/ //g'|sed -n 3p`"
+    if [ -z $VM_STATUS ]; then
+        ocf_log error "Can't get ${OCF_RESKEY_id} 's status!"
+        return $OCF_ERR_GENERIC
+    fi
+    case $VM_STATUS in
+        # "ACTIVE|PAUSED|SUSPENDED|REBOOT" )
+        "ACTIVE" )
+            return $OCF_SUCCESS
+            ;;
+        "SHUTOFF")
+            return $OCF_NOT_RUNNING
+            ;;
+        *)
+            return $OCF_ERR_GENERIC
+            ;;
+    esac
+
+}
+
+virtual_machine_task_status(){
+    VM_TASK_STATUS="`nova show ${OCF_RESKEY_id}|grep 'OS-EXT-STS:task_state'|sed -e 's/|/\n/g'| sed 's/ //g'|sed -n 3p`"
+    if [ -z $VM_TASK_STATUS ]; then
+        ocf_log error "Can't get ${OCF_RESKEY_id} 's TASK_status!"
+        return $OCF_ERR_GENERIC
+    fi
+    return $OCF_SUCCESS
+}
+
+host_ha_status(){
+    local rc
+    crm_mon -1|grep $1|grep Online >/dev/null
+    rc=$?
+    if [ "$rc" = "0" ];then
+        ocf_log debug "$1 is online! "
+        return $OCF_SUCCESS
+    else
+        ocf_log debug "$1 is OFFLINE! "
+        return $OCF_NOT_RUNNING
+    fi
+}
+
+vm_start() {
+    ocf_log debug "In vm function vm_start.............................................................................................."
+    local rc=1
+    local local_node="`hostname`"
+    local try=0
+
+    if ! get_instance_name; then
+        ocf_log error "get instance_name error...,can't start ${OCF_RESKEY_id} here."
+        return $OCF_ERR_GENERIC
+    fi
+
+    ocf_log info "vm $Instance_name start to running in this node($local_node)..."
+    if vm_monitor; then
+        ocf_log info "vm $Instance_name already running."
+        return $OCF_SUCCESS
+    fi
+
+    #default: host down time + vm rebuild time = 90
+    while [ $try -le 90 ] && [ $rc != $OCF_SUCCESS ]; do
+        try=$(($try + 1 ))
+        host_status
+        vm_host_name=$host_name
+        vm_host_status=$host_name_status
+
+        virtual_machine_status
+        tmp_vm_status=$VM_STATUS
+
+        #vm in localhost and vm status is not active
+        if [ "$vm_host_name" = "$local_node" ] && [ "$tmp_vm_status" != "ACTIVE" ]; then
+            # if virtual_machine_task_status && [ "$VM_TASK_STATUS" != "rebuilding"  ] && [ "$VM_TASK_STATUS" != "stopping"  ]; then
+            if virtual_machine_task_status && [ "$VM_TASK_STATUS" = "None"  ]; then
+                ocf_log info "[ $local_node = $vm_host_name ] && ! $tmp_vm_status , start in this node..."
+                nova start ${OCF_RESKEY_id} && ocf_log info "${OCF_RESKEY_id} start in $local_node..." && rc=$OCF_SUCCESS
+            fi
+            
+        fi
+
+        #vm is not in localhost and  vm's host is down
+        if [ "$vm_host_status" = "down" ];then
+            case $tmp_vm_status in
+                "ACTIVE" )
+                    nova evacuate --on-shared-storage ${OCF_RESKEY_id} $local_node && ocf_log info "${OCF_RESKEY_id} evacuate in this node($local_node)..." && rc=$OCF_SUCCESS
+                    ;;
+                "SHUTOFF" )
+                    nova evacuate --on-shared-storage ${OCF_RESKEY_id} $local_node && ocf_log info "${OCF_RESKEY_id} evacuate in this node($local_node),but status is stopped..."                        
+                    # nova start ${OCF_RESKEY_id} && ocf_log info "${OCF_RESKEY_id} start in $local_node..." && rc=$OCF_SUCCESS
+                    ;;
+                "REBUILD")
+                    ocf_log debug "vm's host status is $tmp_vm_status,try later($try)... "                        
+                    ;;
+                *)
+                    ocf_log error "can't start ${OCF_RESKEY_id} in this node($local_node), Because node($vm_host_name) status is $tmp_vm_status."
+                    rc=$OCF_ERR_GENERIC
+                    ;;
+            esac
+        fi
+
+        #vm is not in localhost and vm's host is up(both info from HA and nova),vm also is up. Then live-migration to localhost.
+        if [ "$vm_host_name" != "$local_node" ] && [ "$vm_host_status" = "up" ] && host_ha_status $vm_host_name && [ "$tmp_vm_status"="ACTIVE" ]; then
+            ocf_log info "vm(${OCF_RESKEY_id}) is not in localhost and vm's host is up(both info from HA and nova),vm also is up. Then live-migration to localhost."
+            nova live-migration ${OCF_RESKEY_id} ${local_node} && rc=$OCF_SUCCESS && ocf_log info "live-migration vm(${OCF_RESKEY_id}) to ${local_node} SUCCESS!"
+        fi
+
+        ocf_log info "Waiting $vm_host_name status turn to down($try)..."
+        sleep 1
+     done 
+            
+    # fi
+    
+    if [ $rc -ne 0 ]; then
+        ocf_log error "Failed to start virtual Machine ${Instance_name}."
+        return $OCF_ERR_GENERIC
+    fi
+
+    while ! vm_monitor; do
+        sleep 1
+    done
+    return $OCF_SUCCESS
+}
+
+quorum_ha_online(){
+    NUM_ONLINE=0
+    NUM_ONLINE=`crm_mon -1|grep Online|sed -e 's/ /\n/g'|grep -v "Online:"|grep -v "\["|grep -v "\]"|wc -l`
+    # ((NUM_ONLINE=$NUM_ONLINE-3))
+    ocf_log debug "NUM_ONLINE=$NUM_ONLINE"
+    if [ $NUM_ONLINE -ge 2 ]; then
+        ocf_log debug "NUM_ONLINE >= 2,return true..."
+        return 0
+    else
+        ocf_log warn "NUM_ONLINE < 2,return false..."
+        return 1
+    fi
+}
+
+vm_stop() {
+    ocf_log debug "In vm function vm_stop...................................................................................................."
+    local rc
+
+    # exit immediately if configuration is not valid
+    vm_validate_all || exit $?
+
+    vm_monitor
+    rc=$?
+    case "$rc" in
+        "$OCF_SUCCESS")
+            # Currently running. Normal, expected behavior.
+            host_status
+            vm_host_name=$host_name
+            if quorum_ha_online;then
+                ocf_log debug "vm Resource(${OCF_RESKEY_id}) is currently running, but can't do Nothing just waiting for live-migration..."
+            # nova stop ${OCF_RESKEY_id} && ocf_log info "${OCF_RESKEY_id} stopping..." && 
+                return $OCF_SUCCESS
+            else
+                # nova can't not stop the vm,then virsh destroy it!
+                nova stop ${OCF_RESKEY_id} && ocf_log info "${OCF_RESKEY_id} stopping..." && return $OCF_SUCCESS || virsh destroy $Instance_name && ocf_log warn "nova can't not stop the vm,then virsh destroy it!" && return $OCF_SUCCESS
+            fi
+            ;;
+        "$OCF_NOT_RUNNING")
+            # Currently not running. Nothing to do.
+            ocf_log info "vm Resource(${OCF_RESKEY_id}) is already stopped"
+            return $OCF_SUCCESS
+            ;;
+    esac
+
+    # actually shut down the resource here (make sure to immediately
+    # exit with an $OCF_ERR_ error code if anything goes seriously
+    # wrong)
+    # ...
+
+    # After the resource has been stopped, check whether it shut down
+    # correctly. If the resource stops asynchronously, the agent may
+    # spin on the monitor function here -- if the resource does not
+    # shut down within the defined timeout, the cluster manager will
+    # consider the stop action failed
+    while vm_monitor; do
+        ocf_log debug "Resource has not stopped yet, waiting"
+        sleep 1
+    done
+
+    # only return $OCF_SUCCESS if _everything_ succeeded as expected
+    return $OCF_SUCCESS
+
+}
+
+
+#TODO: May be in future...
+# vm_Migrate_To() {
+
+#     target_node="$OCF_RESKEY_CRM_meta_migrate_target"
+
+#     if vm_monitor; then
+
+
+#         ###########################################################################################################################################
+#         # OK, we know where to connect to. Now do the actual migration.
+#         # ocf_log info "$Instance_name: Starting live migration to ${target_node} (using remote hypervisor URI ${remoteuri} ${migrateuri})."
+#         # virsh ${VIRSH_OPTIONS} migrate --live $Instance_name ${remoteuri} ${migrateuri}
+#         ocf_log info "nova live-migration ff9302d3-25d8-45b4-bf2a-d8f8b46de4b4 ${target_node} start..."
+#         nova live-migration ff9302d3-25d8-45b4-bf2a-d8f8b46de4b4 ${target_node}
+
+#         ###########################################################################################################################################
+#         rc=$?
+#         if [ $rc -ne 0 ]; then
+#             ocf_log err "$Instance_name: live migration to ${remoteuri} ${migrateuri} failed: $rc"
+#             return $OCF_ERR_GENERIC
+#         else
+#             ocf_log info "$Instance_name: live migration to ${target_node} succeeded."            
+#             return $OCF_SUCCESS
+#         fi
+#     else
+#         ocf_log err "$Instance_name: migrate_to: Not active locally!"
+#         return $OCF_ERR_GENERIC
+#     fi
+# }
+
+#TODO: May be in future...
+# vm_Migrate_From() {
+#     while ! vm_monitor; do
+#         sleep 1
+#     done
+#     ocf_log info "$Instance_name: live migration from ${OCF_RESKEY_CRM_meta_migrate_source} succeeded."
+#     return $OCF_SUCCESS
+# }
+
+####################################################################################################
+# zero:
+ocf_log debug "In vm ....................................................................................................."
+
+
+# first: export path setting
+export OS_REGION_NAME=$OCF_RESKEY_os_region_name
+export OS_TENANT_NAME=$OCF_RESKEY_os_tenant_name
+export OS_USERNAME=$OCF_RESKEY_os_username
+export OS_PASSWORD=$OCF_RESKEY_os_password
+export OS_AUTH_URL=$OCF_RESKEY_os_auth_url
+
+
+
+if [ $# -ne 1 ]; then
+  usage
+  exit $OCF_ERR_ARGS
+fi
+
+case $1 in
+  meta-data)            meta_data
+                        exit $OCF_SUCCESS
+                        ;;
+  usage)                usage
+                        exit $OCF_SUCCESS
+                        ;;
+esac
+
+# Everything except usage and meta-data must pass the validate test
+vm_validate_all || exit $?
+
+if [ -z $OCF_RESKEY_id ]; then
+    exit $OCF_ERR_ARGS
+    # ocf_is_probe && exit $OCF_NOT_RUNNING
+    # [ "$__OCF_ACTION" = "stop" ] && exit $OCF_SUCCESS
+fi
+
+
+case $1 in
+    start)        
+        vm_start
+        ;;
+    stop)
+        vm_stop
+        ;;
+    # migrate_to)
+    #     vm_Migrate_To
+    #     ;;
+    # migrate_from)
+    #     vm_Migrate_From
+    #     ;;
+    status)
+        vm_monitor
+        ;;
+    monitor)
+        vm_monitor
+        ;;
+    validate-all)
+        ;;
+    *)
+        usage
+        exit $OCF_ERR_UNIMPLEMENTED
+        ;;
+esac
+exit $?
