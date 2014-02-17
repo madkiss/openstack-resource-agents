@@ -19,7 +19,6 @@
 #   OCF_RESKEY_user
 #   OCF_RESKEY_pid
 #   OCF_RESKEY_monitor_binary
-#   OCF_RESKEY_database_server_port
 #   OCF_RESKEY_amqp_server_port
 #   OCF_RESKEY_zeromq
 #   OCF_RESKEY_additional_parameters
@@ -37,7 +36,6 @@ OCF_RESKEY_binary_default="heat-engine"
 OCF_RESKEY_config_default="/etc/heat/heat.conf"
 OCF_RESKEY_user_default="heat"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
-OCF_RESKEY_database_server_port_default="3306"
 OCF_RESKEY_amqp_server_port_default="5672"
 OCF_RESKEY_zeromq_default="false"
 
@@ -45,7 +43,6 @@ OCF_RESKEY_zeromq_default="false"
 : ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
 : ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
 : ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
-: ${OCF_RESKEY_database_server_port=${OCF_RESKEY_database_server_port_default}}
 : ${OCF_RESKEY_amqp_server_port=${OCF_RESKEY_amqp_server_port_default}}
 : ${OCF_RESKEY_zeromq=${OCF_RESKEY_zeromq_default}}
 
@@ -114,14 +111,6 @@ The pid file to use for this OpenStack Orchestration Engine Service (heat-engine
 <content type="string" default="${OCF_RESKEY_pid_default}" />
 </parameter>
 
-<parameter name="database_server_port" unique="0" required="0">                                                                                                                                                              
-<longdesc lang="en">                                                                                                                                                                                                      
-The listening port number of the database server. Use for monitoring purposes                                                                                                                                        
-</longdesc>                                                                                                                                                                                                               
-<shortdesc lang="en">Database listening port</shortdesc>                                                                                                                                                                      
-<content type="integer" default="${OCF_RESKEY_database_server_port_default}" />                                                                                                                                              
-</parameter>  
-
 <parameter name="amqp_server_port" unique="0" required="0">                                                                                                                                                              
 <longdesc lang="en">                                                                                                                                                                                                      
 The listening port number of the AMQP server. Use for monitoring purposes                                                                                                                                        
@@ -187,7 +176,6 @@ heat_engine_validate() {
 
     check_binary $OCF_RESKEY_binary
     check_binary netstat
-    heat_engine_check_port $OCF_RESKEY_database_server_port
     heat_engine_check_port $OCF_RESKEY_amqp_server_port
     
     # A config file on shared storage that is not available
@@ -234,9 +222,7 @@ heat_engine_status() {
 heat_engine_monitor() {
     local rc
     local pid
-    local rc_db
     local rc_amqp
-    local engine_db_check
     local engine_amqp_check
 
     heat_engine_status
@@ -250,24 +236,14 @@ heat_engine_monitor() {
     # Check the connections according to the PID.
     # We are sure to hit the heat-engine process and not other heat process with the same connection behavior (for example heat-api)
     if ocf_is_true "$OCF_RESKEY_zeromq"; then
-	    pid=`cat $OCF_RESKEY_pid`
-	    engine_db_check=`netstat -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
-	    rc_db=$?
-	    if [ $rc_db -ne 0 ]; then
-	        ocf_log err "heat-engine is not connected to the database server: $rc_db"
-	        return $OCF_NOT_RUNNING
-	    fi
-	else
-        pid=`cat $OCF_RESKEY_pid`
-        engine_db_check=`netstat -punt | grep -s "$OCF_RESKEY_database_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
-        rc_db=$?
-        engine_amqp_check=`netstat -punt | grep -s "$OCF_RESKEY_amqp_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
-        rc_amqp=$?
-	    if [ $rc_amqp -ne 0 ] || [ $rc_db -ne 0 ]; then
-	        ocf_log err "Heat Engine is not connected to the AMQP server and/or the database server: AMQP connection test returned $rc_amqp and database connection test returned $rc_db"
-	        return $OCF_NOT_RUNNING
-	    fi
-	fi
+    pid=`cat $OCF_RESKEY_pid`
+    engine_amqp_check=`netstat -punt | grep -s "$OCF_RESKEY_amqp_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
+    rc_amqp=$?
+      if [ $rc_amqp -ne 0 ]; then
+          ocf_log err "Heat Engine is not connected to the AMQP server: AMQP connection test returned $rc_amqp"
+          return $OCF_NOT_RUNNING
+      fi
+    fi
 
     ocf_log debug "OpenStack Orchestration Engine (heat-engine) monitor succeeded"
     return $OCF_SUCCESS
