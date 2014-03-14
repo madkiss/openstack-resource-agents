@@ -1,0 +1,260 @@
+#!/bin/sh
+#
+#
+# OpenStack HA tool for Neutron (neutron-ha-tool)
+#
+# Description:  This resource agent wraps the Neutron HA Tool(neutron-ha-tool).
+#               It can be used to monitor neutron for the availability of the
+#               l3-agents and migrate routers away from agents that are
+#               currently offline. Additionally it makes sure that dns and dhcp
+#               configuration is synchronized across all dhcp-agents.  The
+#               neutron-ha-tool is currently part of the openstack-network
+#               cookbook for chef. The lastest release is available here:
+#               https://raw.githubusercontent.com/stackforge/cookbook-openstack-network/master/files/default/neutron-ha-tool.py
+#
+# Authors: Ralf Haferkamp
+# Mainly inspired by the Neutron L3 resource agent written by Emilien Macchi
+#
+# Support:      openstack@lists.launchpad.net
+# License:      Apache Software License (ASL) 2.0
+#
+#
+# See usage() function below for more details ...
+#
+# OCF instance parameters:
+#   OCF_RESKEY_binary
+#   OCF_RESKEY_os_auth_url
+#   OCF_RESKEY_os_username
+#   OCF_RESKEY_os_password
+#   OCF_RESKEY_os_tenant_name
+#######################################################################
+# Initialization:
+
+: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
+. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
+
+#######################################################################
+
+# Fill in some defaults if no values are specified
+
+OCF_RESKEY_binary_default="neutron-ha-tool"
+OCF_RESKEY_os_auth_url_default="http://localhost:5000/v2"
+OCF_RESKEY_os_username_default="admin"
+OCF_RESKEY_os_password_defaut=""
+OCF_RESKEY_os_tenant_name_default="admin"
+OCF_RESKEY_os_insecure_default="0"
+OCF_RESKEY_os_cacert_default=""
+
+: ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
+: ${OCF_RESKEY_os_auth_url=${OCF_RESKEY_os_auth_url_default}}
+: ${OCF_RESKEY_os_tenant_name=${OCF_RESKEY_os_tenant_name_default}}
+: ${OCF_RESKEY_os_username=${OCF_RESKEY_os_username_default}}
+: ${OCF_RESKEY_os_password=${OCF_RESKEY_os_password_default}}
+: ${OCF_RESKEY_os_insecure=${OCF_RESKEY_os_insecure_default}}
+: ${OCF_RESKEY_os_cacert=${OCF_RESKEY_os_cacert_default}}
+
+#######################################################################
+
+usage() {
+    cat <<UEND
+        usage: $0 (start|stop|validate-all|meta-data|status|monitor)
+
+        $0 manages the Neutron HA tool (neutron-ha-tool) as an HA resource
+
+        The 'start' operation triggers a migrations of all routers on offline
+             l3-agents to l3-agents that are actually online.
+        The 'stop' is basically noop.
+        The 'validate-all' operation reports whether the parameters are valid.
+        The 'meta-data' operation reports this RA's meta-data information.
+        The 'status' operation reports whether the networking service is running.
+        The 'monitor' operation reports whether there are some routers assigned
+             to l3-agents that are currently offline.
+
+UEND
+}
+
+meta_data() {
+    cat <<END
+<?xml version="1.0"?>
+<!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
+<resource-agent name="neutron-ha-tool">
+<version>1.0</version>
+
+<longdesc lang="en">
+This resource agent wraps the Neutron HA Tool (neutron-ha-tool)
+and can be used to check neutron for offline l3-agents that
+have routers assigend and migrate those routers to a different
+(online) l3-agent.
+</longdesc>
+<shortdesc lang="en">Manages the OpenStack Neutron HA Tool (neutron-ha-tool)</shortdesc>
+<parameters>
+
+<parameter name="binary" unique="0" required="0">
+<longdesc lang="en">
+Location of the OpenStack Neutron HA Tool binary (neutron-ha-tool)
+</longdesc>
+<shortdesc lang="en">OpenStack Neutron HA Tool binary (neutron-ha-tool)</shortdesc>
+<content type="string" default="${OCF_RESKEY_binary_default}" />
+</parameter>
+
+<parameter name="os_auth_url" unique="0" required="0">
+<longdesc lang="en">
+The URL pointing to the Keystone instance to use for authentication.
+</longdesc>
+<shortdesc lang="en">Keystone URL</shortdesc>
+<content type="string" default="${OCF_RESKEY_os_auth_url_default}" />
+</parameter>
+
+<parameter name="os_password" unique="0" required="1">
+<longdesc lang="en">
+The password to use for authentication against keystone.
+</longdesc>
+<shortdesc lang="en">Password for authentication</shortdesc>
+<content type="string" default="${OCF_RESKEY_os_password_default}" />
+</parameter>
+
+<parameter name="os_tenant_name" unique="0" required="0">
+<longdesc lang="en">
+The Tenant to use for authentication against keystone.
+</longdesc>
+<shortdesc lang="en">Tenant name for authentication</shortdesc>
+<content type="string" default="${OCF_RESKEY_os_tenant_name_default}" />
+</parameter>
+
+<parameter name="os_username" unique="0" required="0">
+<longdesc lang="en">
+OpenStack Username for authentication.
+</longdesc>
+<shortdesc lang="en">OpenStack Username</shortdesc>
+<content type="string" default="${OCF_RESKEY_os_username_default}" />
+</parameter>
+
+<parameter name="os_insecure" unique="0" required="0">
+<longdesc lang="en">
+Disable SSL certificate verification.
+</longdesc>
+<shortdesc lang="en">Disable SSL certificate verification</shortdesc>
+<content type="boolean" default="${OCF_RESKEY_os_insecure_default}" />
+</parameter>
+
+<parameter name="os_cacert" unique="0" required="0">
+<longdesc lang="en">
+Filename of a SSL CA Certificate Bundle to use for Server Certificate
+verification.
+</longdesc>
+<shortdesc lang="en">SSL CA Bundle file</shortdesc>
+<content type="boolean" default="${OCF_RESKEY_os_cacert_default}" />
+</parameter>
+</parameters>
+
+<actions>
+<action name="start" timeout="20" />
+<action name="stop" timeout="20" />
+<action name="status" timeout="20" />
+<action name="monitor" timeout="30" interval="20" />
+<action name="validate-all" timeout="5" />
+<action name="meta-data" timeout="5" />
+</actions>
+</resource-agent>
+END
+}
+
+#######################################################################
+# Functions invoked by resource manager actions
+
+neutron_ha_tool_validate() {
+    check_binary $OCF_RESKEY_binary
+    if [ -n "$OCF_RESKEY_os_cacert" ]; then
+        if [ ! -f "$OCF_RESKEY_os_cacert" ]; then
+            ocf_log err "Failed to verify CA Certifcate Bundle ($OCF_RESKEY_os_cacert)"
+            return 1
+        fi
+    fi
+    true
+}
+
+neutron_ha_tool_status() {
+    # There is not much to do here, since there is no daemon to check for.
+    # Just pretend we're running successfully
+    return $OCF_SUCCESS
+}
+
+neutron_ha_tool_monitor() {
+    INSECURE=""
+    if ocf_is_true $OCF_RESKEY_os_insecure; then
+        INSECURE="--insecure"
+    fi
+
+    ${OCF_RESKEY_binary} --l3-agent-check --quiet $INSECURE
+
+    rc=$?
+    if [ $rc -eq 2 ]; then
+        ocf_log err "Some Neutron routers need migration."
+        return $OCF_NOT_RUNNING
+    fi
+
+    ocf_log debug "Neutron HA Tool (neutron-ha-tool) monitor succeeded"
+    return $OCF_SUCCESS
+}
+
+neutron_ha_tool_start() {
+    INSECURE=""
+    if ocf_is_true $OCF_RESKEY_os_insecure; then
+        INSECURE="--insecure"
+    fi
+
+    ${OCF_RESKEY_binary} --replicate-dhcp $INSECURE
+
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        ocf_log err "Neutron HA Tool failed to replicate networks to DHCP agents."
+        return $OCF_ERR_GENERIC
+    fi
+
+    ${OCF_RESKEY_binary} --l3-agent-migrate --now $INSECURE
+
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        ocf_log err "Neutron HA Tool failed to migrate routers away from offline L3 agents."
+        return $OCF_ERR_GENERIC
+    fi
+    ocf_log debug "Neutron HA Tool (neutron-ha-tool) router migration succeeded."
+    return $OCF_SUCCESS
+}
+
+neutron_ha_tool_stop() {
+    # This is a noop
+    return $OCF_SUCCESS
+}
+
+#######################################################################
+
+case "$1" in
+  meta-data)    meta_data
+                exit $OCF_SUCCESS;;
+  usage|help)   usage
+                exit $OCF_SUCCESS;;
+esac
+
+# Anything except meta-data and help must pass validation
+neutron_ha_tool_validate || exit $?
+
+# OPENSTACK env variables
+export OS_AUTH_URL=$OCF_RESKEY_os_auth_url
+export OS_TENANT_NAME=$OCF_RESKEY_os_tenant_name
+export OS_USERNAME=$OCF_RESKEY_os_username
+export OS_PASSWORD=$OCF_RESKEY_os_password
+if [ -n "$OCF_RESKEY_os_cacert" ]; then
+    export OS_CACERT=$OCF_RESKEY_os_cacert
+fi
+
+# What kind of method was invoked?
+case "$1" in
+  start)        neutron_ha_tool_start;;
+  stop)         neutron_ha_tool_stop;;
+  status)       neutron_ha_tool_status;;
+  monitor)      neutron_ha_tool_monitor;;
+  validate-all) ;;
+  *)            usage
+                exit $OCF_ERR_UNIMPLEMENTED;;
+esac
