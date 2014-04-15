@@ -17,7 +17,7 @@
 # OCF instance parameters:
 #   OCF_RESKEY_binary
 #   OCF_RESKEY_config
-#   OCF_RESKEY_plugin_config
+#   OCF_RESKEY_agent_config
 #   OCF_RESKEY_user
 #   OCF_RESKEY_pid
 #   OCF_RESKEY_neutron_server_port
@@ -34,14 +34,14 @@
 
 OCF_RESKEY_binary_default="neutron-l3-agent"
 OCF_RESKEY_config_default="/etc/neutron/neutron.conf"
-OCF_RESKEY_plugin_config_default="/etc/neutron/l3_agent.ini"
+OCF_RESKEY_agent_config_default="/etc/neutron/l3_agent.ini"
 OCF_RESKEY_user_default="neutron"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
-OCF_RESKEY_neutron_server_port_default="9696"
+OCF_RESKEY_neutron_server_port_default="5672"
 
 : ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
 : ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
-: ${OCF_RESKEY_plugin_config=${OCF_RESKEY_plugin_config_default}}
+: ${OCF_RESKEY_agent_config=${OCF_RESKEY_agent_config_default}}
 : ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
 : ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
 : ${OCF_RESKEY_neutron_server_port=${OCF_RESKEY_neutron_server_port_default}}
@@ -95,12 +95,12 @@ Location of the OpenStack Neutron Service (neutron-server) configuration file
 <content type="string" default="${OCF_RESKEY_config_default}" />
 </parameter>
 
-<parameter name="plugin config" unique="0" required="0">
+<parameter name="agent_config" unique="0" required="0">
 <longdesc lang="en">
 Location of the OpenStack L3 Service (neutron-l3-agent) configuration file
 </longdesc>
 <shortdesc lang="en">OpenStack L3 Server (neutron-l3-agent) config file</shortdesc>
-<content type="string" default="${OCF_RESKEY_plugin_config_default}" />
+<content type="string" default="${OCF_RESKEY_agent_config_default}" />
 </parameter>
 
 <parameter name="user" unique="0" required="0">
@@ -241,7 +241,7 @@ neutron_l3_agent_start() {
     # run the actual neutron-l3-agent daemon. Don't use ocf_run as we're sending the tool's output
     # straight to /dev/null anyway and using ocf_run would break stdout-redirection here.
     su ${OCF_RESKEY_user} -s /bin/sh -c "${OCF_RESKEY_binary} --config-file=$OCF_RESKEY_config \
-       --config-file=$OCF_RESKEY_plugin_config --log-file=/var/log/neutron/l3-agent.log $OCF_RESKEY_additional_parameters"' >> \
+       --config-file=$OCF_RESKEY_agent_config --log-file=/var/log/neutron/l3-agent.log $OCF_RESKEY_additional_parameters"' >> \
 	/dev/null 2>&1 & echo $!' > $OCF_RESKEY_pid
 
     # Spin waiting for the server to come up.
