@@ -1,9 +1,9 @@
 #!/bin/sh
 #
 #
-# OpenStack L3 Service (neutron-l3-agent)
+# OpenStack LBAAS Service (neutron-lbaas-agent)
 #
-# Description:  Manages an OpenStack L3 Service (neutron-l3-agent) process as an HA resource
+# Description:  Manages an OpenStack LBAAS Service (neutron-lbaas-agent) process as an HA resource
 #
 # Authors: Emilien Macchi
 # Mainly inspired by the Nova Network resource agent written by Emilien Macchi & Sebastien Han
@@ -24,6 +24,7 @@
 #   OCF_RESKEY_additional_parameters
 #######################################################################
 # Initialization:
+export OCF_ROOT="/usr/lib/ocf"
 
 : ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
 . ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
@@ -32,9 +33,10 @@
 
 # Fill in some defaults if no values are specified
 
-OCF_RESKEY_binary_default="neutron-l3-agent"
+# OCF_RESKEY_binary_default="neutron-lbaas-agent"
+OCF_RESKEY_binary_default="neutron-lbaas-agent"
 OCF_RESKEY_config_default="/etc/neutron/neutron.conf"
-OCF_RESKEY_plugin_config_default="/etc/neutron/l3_agent.ini"
+OCF_RESKEY_plugin_config_default="/etc/neutron/lbaas_agent.ini"
 OCF_RESKEY_user_default="neutron"
 OCF_RESKEY_pid_default="$HA_RSCTMP/$OCF_RESOURCE_INSTANCE.pid"
 OCF_RESKEY_neutron_server_port_default="5672"
@@ -52,7 +54,7 @@ usage() {
     cat <<UEND
         usage: $0 (start|stop|validate-all|meta-data|status|monitor)
 
-        $0 manages an OpenStack L3 Service (neutron-l3-agent) process as an HA resource 
+        $0 manages an OpenStack LBAAS Service (neutron-lbaas-agent) process as an HA resource 
 
         The 'start' operation starts the networking service.
         The 'stop' operation stops the networking service.
@@ -68,22 +70,22 @@ meta_data() {
     cat <<END
 <?xml version="1.0"?>
 <!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
-<resource-agent name="neutron-l3-agent">
+<resource-agent name="neutron-lbaas-agent">
 <version>1.0</version>
 
 <longdesc lang="en">
-Resource agent for the OpenStack Neutron L3 Service (neutron-l3-agent)
-May manage a neutron-l3-agent instance or a clone set that 
-creates a distributed neutron-l3-agent cluster.
+Resource agent for the OpenStack Neutron LBAAS Service (neutron-lbaas-agent)
+May manage a neutron-lbaas-agent instance or a clone set that 
+creates a distributed neutron-lbaas-agent cluster.
 </longdesc>
-<shortdesc lang="en">Manages the OpenStack L3 Service (neutron-l3-agent)</shortdesc>
+<shortdesc lang="en">Manages the OpenStack LBAAS Service (neutron-lbaas-agent)</shortdesc>
 <parameters>
 
 <parameter name="binary" unique="0" required="0">
 <longdesc lang="en">
-Location of the OpenStack L3 Server server binary (neutron-l3-agent)
+Location of the OpenStack LBAAS Server server binary (neutron-lbaas-agent)
 </longdesc>
-<shortdesc lang="en">OpenStack L3 Server server binary (neutron-l3-agent)</shortdesc>
+<shortdesc lang="en">OpenStack LBAAS Server server binary (neutron-lbaas-agent)</shortdesc>
 <content type="string" default="${OCF_RESKEY_binary_default}" />
 </parameter>
 
@@ -91,31 +93,31 @@ Location of the OpenStack L3 Server server binary (neutron-l3-agent)
 <longdesc lang="en">
 Location of the OpenStack Neutron Service (neutron-server) configuration file
 </longdesc>
-<shortdesc lang="en">OpenStack L3 Server (neutron-server) config file</shortdesc>
+<shortdesc lang="en">OpenStack LBAAS Server (neutron-server) config file</shortdesc>
 <content type="string" default="${OCF_RESKEY_config_default}" />
 </parameter>
 
 <parameter name="plugin config" unique="0" required="0">
 <longdesc lang="en">
-Location of the OpenStack L3 Service (neutron-l3-agent) configuration file
+Location of the OpenStack LBAAS Service (neutron-lbaas-agent) configuration file
 </longdesc>
-<shortdesc lang="en">OpenStack L3 Server (neutron-l3-agent) config file</shortdesc>
+<shortdesc lang="en">OpenStack LBAAS Server (neutron-lbaas-agent) config file</shortdesc>
 <content type="string" default="${OCF_RESKEY_plugin_config_default}" />
 </parameter>
 
 <parameter name="user" unique="0" required="0">
 <longdesc lang="en">
-User running OpenStack L3 Service (neutron-l3-agent)
+User running OpenStack LBAAS Service (neutron-lbaas-agent)
 </longdesc>
-<shortdesc lang="en">OpenStack L3 Service (neutron-l3-agent) user</shortdesc>
+<shortdesc lang="en">OpenStack LBAAS Service (neutron-lbaas-agent) user</shortdesc>
 <content type="string" default="${OCF_RESKEY_user_default}" />
 </parameter>
 
 <parameter name="pid" unique="0" required="0">
 <longdesc lang="en">
-The pid file to use for this OpenStack L3 Service (neutron-l3-agent) instance
+The pid file to use for this OpenStack LBAAS Service (neutron-lbaas-agent) instance
 </longdesc>
-<shortdesc lang="en">OpenStack L3 Service (neutron-l3-agent) pid file</shortdesc>
+<shortdesc lang="en">OpenStack LBAAS Service (neutron-lbaas-agent) pid file</shortdesc>
 <content type="string" default="${OCF_RESKEY_pid_default}" />
 </parameter>  
 
@@ -130,9 +132,9 @@ The listening port number of the AMQP server. Mandatory to perform a monitor che
 
 <parameter name="additional_parameters" unique="0" required="0">
 <longdesc lang="en">
-Additional parameters to pass on to the OpenStack L3 Service (neutron-l3-agent)
+Additional parameters to pass on to the OpenStack LBAAS Service (neutron-lbaas-agent)
 </longdesc>
-<shortdesc lang="en">Additional parameters for neutron-l3-agent</shortdesc>
+<shortdesc lang="en">Additional parameters for neutron-lbaas-agent</shortdesc>
 <content type="string" />
 </parameter>
 
@@ -153,7 +155,7 @@ END
 #######################################################################
 # Functions invoked by resource manager actions
 
-neutron_l3_agent_validate() {
+neutron_lbaas_agent_validate() {
     local rc
 
     check_binary $OCF_RESKEY_binary
@@ -179,12 +181,12 @@ neutron_l3_agent_validate() {
     true
 }
 
-neutron_l3_agent_status() {
+neutron_lbaas_agent_status() {
     local pid
     local rc
 
     if [ ! -f $OCF_RESKEY_pid ]; then
-        ocf_log info "OpenStack L3 Server (neutron-l3-agent) is not running"
+        ocf_log info "OpenStack LBAAS Server (neutron-lbaas-agent) is not running"
         return $OCF_NOT_RUNNING
     else
         pid=`cat $OCF_RESKEY_pid`
@@ -195,17 +197,17 @@ neutron_l3_agent_status() {
     if [ $rc -eq 0 ]; then
         return $OCF_SUCCESS
     else
-        ocf_log info "Old PID file found, but OpenStack L3 Server (neutron-l3-agent) is not running"
+        ocf_log info "Old PID file found, but OpenStack LBAAS Server (neutron-lbaas-agent) is not running"
         return $OCF_NOT_RUNNING
     fi
 }
 
-neutron_l3_agent_monitor() {
+neutron_lbaas_agent_monitor() {
     local rc
     local pid
     local network_amqp_check
     
-    neutron_l3_agent_status
+    neutron_lbaas_agent_status
     rc=$?
 
     # If status returned anything but success, return that immediately
@@ -215,60 +217,62 @@ neutron_l3_agent_monitor() {
 
     # Check the connections according to the PID.
     # We are sure to hit the scheduler process and not other Neutron process with the same connection behavior (for example neutron-server)
-        pid=`cat $OCF_RESKEY_pid`
+        #pid=`cat $OCF_RESKEY_pid`
         # check the connections according to the PID
-        network_amqp_check=`netstat -punt | grep -s "$OCF_RESKEY_neutron_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
-        rc=$?
-	    if [ $rc -ne 0 ]; then
-	        ocf_log err "Neutron L3 Server is not connected to the Neutron server: $rc"
-	        return $OCF_NOT_RUNNING
-	    fi
+        #network_amqp_check=`netstat -punt | grep -s "$OCF_RESKEY_neutron_server_port" | grep -s "$pid" | grep -qs "ESTABLISHED"`
+        #rc=$?
+	    #if [ $rc -ne 0 ]; then
+	    #    ocf_log err "Neutron LBAAS Server is not connected to the Neutron server: $rc"
+	    #    return $OCF_NOT_RUNNING
+	    #fi
 
-    ocf_log debug "OpenStack L3 Server (neutron-l3-agent) monitor succeeded"
+    ocf_log debug "OpenStack LBAAS Server (neutron-lbaas-agent) monitor succeeded"
     return $OCF_SUCCESS
 }
 
-neutron_l3_agent_start() {
+neutron_lbaas_agent_start() {
     local rc
 
-    neutron_l3_agent_status
+    neutron_lbaas_agent_status
     rc=$?
     if [ $rc -eq $OCF_SUCCESS ]; then
-        ocf_log info "OpenStack L3 Server (neutron-l3-agent) already running"
+        ocf_log info "OpenStack LBAAS Server (neutron-lbaas-agent) already running"
         return $OCF_SUCCESS
     fi
 
-    # run the actual neutron-l3-agent daemon. Don't use ocf_run as we're sending the tool's output
+    # run the actual neutron-lbaas-agent daemon. Don't use ocf_run as we're sending the tool's output
     # straight to /dev/null anyway and using ocf_run would break stdout-redirection here.
     su ${OCF_RESKEY_user} -s /bin/sh -c "${OCF_RESKEY_binary} --config-file=$OCF_RESKEY_config \
-       --config-file=$OCF_RESKEY_plugin_config --log-file=/var/log/neutron/l3-agent.log $OCF_RESKEY_additional_parameters"' >> \
+       --config-file=$OCF_RESKEY_plugin_config --log-file=/var/log/neutron/lbaas-agent.log $OCF_RESKEY_additional_parameters"' >> \
 	/dev/null 2>&1 & echo $!' > $OCF_RESKEY_pid
 
     # Spin waiting for the server to come up.
     # Let the CRM/LRM time us out if required
     while true; do
-    neutron_l3_agent_monitor
+    neutron_lbaas_agent_monitor
     rc=$?
     [ $rc -eq $OCF_SUCCESS ] && break
     if [ $rc -ne $OCF_NOT_RUNNING ]; then
-        ocf_log err "OpenStack L3 Server (neutron-l3-agent) start failed"
+        ocf_log err "OpenStack LBAAS Server (neutron-lbaas-agent) start failed"
         exit $OCF_ERR_GENERIC
     fi
     sleep 1
     done
 
-    ocf_log info "OpenStack L3 Server (neutron-l3-agent) started"
+    ocf_log info "OpenStack LBAAS Server (neutron-lbaas-agent) started"
     return $OCF_SUCCESS
 }
 
-neutron_l3_agent_stop() {
+neutron_lbaas_agent_stop() {
     local rc
     local pid
 
-    neutron_l3_agent_status
+    check_binary neutron-ovs-cleanup 
+
+    neutron_lbaas_agent_status
     rc=$?
     if [ $rc -eq $OCF_NOT_RUNNING ]; then
-        ocf_log info "OpenStack L3 Server (neutron-l3-agent) already stopped"
+        ocf_log info "OpenStack LBAAS Server (neutron-lbaas-agent) already stopped"
         return $OCF_SUCCESS
     fi
 
@@ -277,7 +281,7 @@ neutron_l3_agent_stop() {
     ocf_run kill -s TERM $pid
     rc=$?
     if [ $rc -ne 0 ]; then
-        ocf_log err "OpenStack L3 Server (neutron-l3-agent) couldn't be stopped"
+        ocf_log err "OpenStack LBAAS Server (neutron-lbaas-agent) couldn't be stopped"
         exit $OCF_ERR_GENERIC
     fi
 
@@ -288,28 +292,30 @@ neutron_l3_agent_stop() {
     fi
     count=0
     while [ $count -lt $shutdown_timeout ]; do
-        neutron_l3_agent_status
+        neutron_lbaas_agent_status
         rc=$?
         if [ $rc -eq $OCF_NOT_RUNNING ]; then
             break
         fi
         count=`expr $count + 1`
         sleep 1
-        ocf_log debug "OpenStack L3 Server (neutron-l3-agent) still hasn't stopped yet. Waiting ..."
+        ocf_log debug "OpenStack LBAAS Server (neutron-lbaas-agent) still hasn't stopped yet. Waiting ..."
     done
 
-    neutron_l3_agent_status
+    neutron_lbaas_agent_status
     rc=$?
     if [ $rc -ne $OCF_NOT_RUNNING ]; then
         # SIGTERM didn't help either, try SIGKILL
-        ocf_log info "OpenStack L3 Server (neutron-l3-agent) failed to stop after ${shutdown_timeout}s \
+        ocf_log info "OpenStack LBAAS Server (neutron-lbaas-agent) failed to stop after ${shutdown_timeout}s \
           using SIGTERM. Trying SIGKILL ..."
         ocf_run kill -s KILL $pid
     fi
 
-    ocf_log info "OpenStack L3 Server (neutron-l3-agent) stopped"
+    ocf_log info "OpenStack LBAAS Server (neutron-lbaas-agent) stopped"
 
     rm -f $OCF_RESKEY_pid
+
+    # neutron-ovs-cleanup
 
     return $OCF_SUCCESS
 }
@@ -324,14 +330,14 @@ case "$1" in
 esac
 
 # Anything except meta-data and help must pass validation
-neutron_l3_agent_validate || exit $?
+neutron_lbaas_agent_validate || exit $?
 
 # What kind of method was invoked?
 case "$1" in
-  start)        neutron_l3_agent_start;;
-  stop)         neutron_l3_agent_stop;;
-  status)       neutron_l3_agent_status;;
-  monitor)      neutron_l3_agent_monitor;;
+  start)        neutron_lbaas_agent_start;;
+  stop)         neutron_lbaas_agent_stop;;
+  status)       neutron_lbaas_agent_status;;
+  monitor)      neutron_lbaas_agent_monitor;;
   validate-all) ;;
   *)            usage
                 exit $OCF_ERR_UNIMPLEMENTED;;
