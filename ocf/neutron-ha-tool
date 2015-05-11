@@ -40,7 +40,7 @@
 OCF_RESKEY_binary_default="neutron-ha-tool"
 OCF_RESKEY_os_auth_url_default="http://localhost:5000/v2"
 OCF_RESKEY_os_username_default="admin"
-OCF_RESKEY_os_password_defaut=""
+OCF_RESKEY_os_password_default=""
 OCF_RESKEY_os_tenant_name_default="admin"
 OCF_RESKEY_os_insecure_default="0"
 OCF_RESKEY_os_cacert_default=""
