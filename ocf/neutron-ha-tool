@@ -24,6 +24,7 @@
 # OCF instance parameters:
 #   OCF_RESKEY_binary
 #   OCF_RESKEY_os_auth_url
+#   OCF_RESKEY_os_region_name
 #   OCF_RESKEY_os_username
 #   OCF_RESKEY_os_password
 #   OCF_RESKEY_os_tenant_name
@@ -39,6 +40,7 @@
 
 OCF_RESKEY_binary_default="neutron-ha-tool"
 OCF_RESKEY_os_auth_url_default="http://localhost:5000/v2"
+OCF_RESKEY_os_region_name_default=""
 OCF_RESKEY_os_username_default="admin"
 OCF_RESKEY_os_password_default=""
 OCF_RESKEY_os_tenant_name_default="admin"
@@ -47,6 +49,7 @@ OCF_RESKEY_os_cacert_default=""
 
 : ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
 : ${OCF_RESKEY_os_auth_url=${OCF_RESKEY_os_auth_url_default}}
+: ${OCF_RESKEY_os_region_name=${OCF_RESKEY_os_region_name_default}}
 : ${OCF_RESKEY_os_tenant_name=${OCF_RESKEY_os_tenant_name_default}}
 : ${OCF_RESKEY_os_username=${OCF_RESKEY_os_username_default}}
 : ${OCF_RESKEY_os_password=${OCF_RESKEY_os_password_default}}
@@ -103,6 +106,14 @@ The URL pointing to the Keystone instance to use for authentication.
 </longdesc>
 <shortdesc lang="en">Keystone URL</shortdesc>
 <content type="string" default="${OCF_RESKEY_os_auth_url_default}" />
+</parameter>
+
+<parameter name="os_region_name" unique="0" required="0">
+<longdesc lang="en">
+The region name to use for authentication against keystone.
+</longdesc>
+<shortdesc lang="en">Keystone region name</shortdesc>
+<content type="string" default="${OCF_RESKEY_os_region_name_default}" />
 </parameter>
 
 <parameter name="os_password" unique="0" required="1">
@@ -241,6 +252,7 @@ neutron_ha_tool_validate || exit $?
 
 # OPENSTACK env variables
 export OS_AUTH_URL=$OCF_RESKEY_os_auth_url
+export OS_REGION_NAME=$OCF_RESKEY_os_region_name
 export OS_TENANT_NAME=$OCF_RESKEY_os_tenant_name
 export OS_USERNAME=$OCF_RESKEY_os_username
 export OS_PASSWORD=$OCF_RESKEY_os_password
